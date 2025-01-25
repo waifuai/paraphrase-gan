@@ -1,0 +1,15 @@
+# Ignore data directories
+data/
+models/
+logs/
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.so
+*.swp
+
+# Environment files
+.env
+venv/
