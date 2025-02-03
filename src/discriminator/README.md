@@ -5,7 +5,7 @@ is human-generated or not.
 
 - `discriminator_train` trains the discriminator.
 - `discriminator_discriminate` performs the discrimination.
-- `phrase_discriminator` specifies the instructions for `tensor2tensor`
+- `phrase_discriminator` specifies the instructions for `trax`
 as a `PhraseDiscriminatorProblem`.
 
 ```

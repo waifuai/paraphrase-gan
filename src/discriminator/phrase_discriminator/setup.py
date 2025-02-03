@@ -8,8 +8,8 @@ REQUIRED_PACKAGES = [
 setup(
   name='phrase_discriminator',
   version='0.1',
-  author='WaifuAI',
-  author_email='waifuai@users.noreply.github.com',
+  author='',
+  author_email='',
   install_requires=REQUIRED_PACKAGES,
   packages=find_packages(),
   include_package_data=True,
