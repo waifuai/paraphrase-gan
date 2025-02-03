@@ -4,7 +4,7 @@ Handles training and performing the generator of paraphrases to a corresponding 
 
 - `generator_train` trains the generator.
 - `generator_generate` performs the generation.
-- `phrase_generator` specifies the instructions for `tensor2tensor` as a
+- `phrase_generator` specifies the instructions for `trax` as a
 `PhraseGenerationProblem`.
 
 ```
