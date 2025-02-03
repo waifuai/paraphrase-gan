@@ -1,0 +1,125 @@
+.
+├── LICENSE
+├── README.md
+├── config
+│   └── paths.sh
+├── data
+│   ├── processed
+│   └── raw
+├── docs
+│   └── ARCHITECTURE.md
+├── models
+├── requirements.txt
+├── run.sh
+├── scripts
+│   ├── 0_gan_prep
+│   │   ├── 0_gan_prep.sh
+│   │   ├── README.md
+│   │   ├── data
+│   │   │   └── input
+│   │   │       └── paraphrases.tsv
+│   │   ├── gan_prep.ascii
+│   │   ├── gen_mock_paraphrases.py
+│   │   └── test_0_gan_prep.sh
+│   ├── 1_gan_loop
+│   │   ├── 1_gan_loop.sh
+│   │   ├── README.md
+│   │   ├── data
+│   │   │   └── input
+│   │   │       └── paraphrases.tsv
+│   │   └── gan_loop.ascii
+│   ├── common.sh
+│   ├── prepare_data.sh
+│   └── train_model.sh
+├── src
+│   ├── discriminator
+│   │   ├── README.md
+│   │   ├── discriminator_discriminate
+│   │   │   ├── README.md
+│   │   │   ├── discriminating.ascii
+│   │   │   ├── discriminator_discriminate.sh
+│   │   │   └── discriminator_discriminate_postprocess.py
+│   │   ├── discriminator_train
+│   │   │   ├── README.md
+│   │   │   ├── data
+│   │   │   │   └── input
+│   │   │   │       └── paraphrases.tsv
+│   │   │   ├── disc_train.ascii
+│   │   │   ├── discriminator_train.sh
+│   │   │   ├── discriminator_train_do
+│   │   │   │   ├── README.md
+│   │   │   │   ├── data
+│   │   │   │   │   └── input
+│   │   │   │   │       └── output
+│   │   │   │   ├── disc_train_do.ascii
+│   │   │   │   ├── discriminator_train_do.sh
+│   │   │   │   └── model
+│   │   │   ├── discriminator_train_prep
+│   │   │   │   ├── README.md
+│   │   │   │   ├── data
+│   │   │   │   │   ├── input
+│   │   │   │   │   │   └── input
+│   │   │   │   │   │       └── paraphrases.tsv
+│   │   │   │   │   └── output
+│   │   │   │   ├── disc_train_prep.ascii
+│   │   │   │   └── discriminator_train_prep.sh
+│   │   │   └── gen_mock_paraphrases.py
+│   │   ├── phrase_discriminator
+│   │   │   ├── README.md
+│   │   │   ├── __init__.py
+│   │   │   ├── setup.py
+│   │   │   └── trainer
+│   │   │       ├── __init__.py
+│   │   │       └── problem.py
+│   │   ├── test_discriminator.py
+│   │   ├── test_discriminator_discriminate.sh
+│   │   ├── test_discriminator_train_do.sh
+│   │   └── test_discriminator_train_prep.sh
+│   ├── generator
+│   │   ├── README.md
+│   │   ├── generator_generate
+│   │   │   ├── README.md
+│   │   │   ├── data
+│   │   │   │   └── input
+│   │   │   │       └── paraphrases.tsv
+│   │   │   ├── generating.ascii
+│   │   │   └── generator_generate.sh
+│   │   ├── generator_train
+│   │   │   ├── README.md
+│   │   │   ├── data
+│   │   │   │   └── input
+│   │   │   │       └── paraphrases.tsv
+│   │   │   ├── gen_train.ascii
+│   │   │   ├── generator_train.sh
+│   │   │   ├── generator_train_do
+│   │   │   │   ├── README.md
+│   │   │   │   ├── data
+│   │   │   │   │   └── input
+│   │   │   │   ├── gen_train_do.ascii
+│   │   │   │   ├── generator_train_do.sh
+│   │   │   │   └── model
+│   │   │   └── generator_train_prep
+│   │   │       ├── README.md
+│   │   │       ├── data
+│   │   │       │   ├── input
+│   │   │       │   │   └── input
+│   │   │       │   │       └── paraphrases.tsv
+│   │   │       │   └── output
+│   │   │       ├── gen_mock_paraphrases.py
+│   │   │       ├── gen_train_prep.ascii
+│   │   │       └── generator_train_prep.sh
+│   │   ├── phrase_generator
+│   │   │   ├── README.md
+│   │   │   ├── __init__.py
+│   │   │   ├── setup.py
+│   │   │   └── trainer
+│   │   │       ├── __init__.py
+│   │   │       └── problem.py
+│   │   ├── test_generator.py
+│   │   ├── test_generator_train.sh
+│   │   └── test_generator_train_prep.sh
+│   └── utils
+│       └── prepare_data.py
+└── tests
+    ├── conftest.py
+    └── test_gan.py
