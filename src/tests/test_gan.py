@@ -106,10 +106,13 @@ def test_data_loading_and_preprocessing(clean_test_env):
         targets = examples["target_phrase"]
         inputs = ["" if i is None else i for i in inputs]
         targets = ["" if t is None else t for t in targets]
-        model_inputs = generator_tokenizer(inputs, max_length=gen_max_len, truncation=True)
-        with generator_tokenizer.as_target_tokenizer():
-            labels = generator_tokenizer(targets, max_length=gen_max_len, truncation=True)
-        model_inputs["labels"] = labels["input_ids"]
+        model_inputs = generator_tokenizer(
+            inputs,
+            text_target=targets,
+            max_length=gen_max_len,
+            truncation=True
+        )
+        # The tokenizer automatically creates the 'labels' field when text_target is provided
         return model_inputs
 
     def preprocess_discriminator(examples):

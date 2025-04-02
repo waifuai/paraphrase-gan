@@ -1,3 +1,4 @@
+import pytest
 # conftest.py (Fixtures)
 import pytest
 from src.main import ensure_directory

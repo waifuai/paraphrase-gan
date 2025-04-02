@@ -289,9 +289,9 @@ def train_hf_model(
     model: Any, # Can be Seq2Seq or SequenceClassification model
     tokenizer: AutoTokenizer,
     train_dataset: Dataset,
-    eval_dataset: Dataset = None, # Optional eval dataset
     training_args: TrainingArguments,
     data_collator: Any, # DataCollatorForSeq2Seq or DataCollatorWithPadding
+    eval_dataset: Dataset = None, # Optional eval dataset
 ):
     """Trains a Hugging Face model using the Trainer API."""
     logger.info(f"Initializing Trainer for model: {model.__class__.__name__}")
