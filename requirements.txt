@@ -1,3 +1,8 @@
 pytest
-trax
-tensorflow
+transformers
+datasets
+accelerate
+evaluate
+torch
+sentencepiece # Required by T5 tokenizer
+protobuf

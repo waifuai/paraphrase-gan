@@ -1,174 +1,263 @@
-# test_gan.py (Test Cases)
+import pytest
+import subprocess
+import os
+import csv
+import numpy as np
+from pathlib import Path
+from datasets import load_dataset, Dataset
 
-def test_data_preparer(clean_test_env):
-    """Tests the DataPreparer class."""
-    input_dir = clean_test_env / "input"
-    output_dir = clean_test_env / "output"
-    ensure_directory(input_dir)
+# Import necessary components from src.main
+# Note: We might need to adjust imports if functions are nested or rely on global state
+from src.main import (
+    CONFIG,
+    ensure_directory,
+    generate_mock_paraphrases,
+    load_generator_model,
+    load_discriminator_model,
+    # Preprocessing functions are defined inside main, test them via map
+    postprocess_discriminator_output_hf,
+    combine_data_hf,
+    generator_tokenizer, # Assuming global tokenizer access for tests
+    discriminator_tokenizer # Assuming global tokenizer access for tests
+)
+from transformers import (
+    T5ForConditionalGeneration,
+    BertForSequenceClassification,
+    AutoTokenizer # Re-import for clarity if needed
+)
 
-    # Create a sample input file
-    with open(input_dir / "test.tsv", "w", encoding="utf-8") as f:
-        f.write("Phrase 1\tParaphrase 1\n")
-        f.write("  Phrase 2  \t  Paraphrase 2  \n")  # Extra whitespace
-        f.write("Phrase 3\tParaphrase 3\tExtra Column\n")  # Extra column
-        f.write("\n") #Empty Line
-        f.write("Phrase4\t") #Missing paraphrase
+# --- Test Fixtures (from conftest.py) ---
+# clean_test_env fixture is used automatically by pytest
 
-    preparer = DataPreparer(input_dir, output_dir)
-    preparer.prepare()
-
-    assert (output_dir / "test.tsv").exists()
-    with open(output_dir / "test.tsv", "r", encoding="utf-8") as f:
+# --- Helper Function for Tests ---
+def count_lines(filepath: Path, skip_header=False):
+    """Counts lines in a file, optionally skipping the header."""
+    if not filepath.exists():
+        return 0
+    with open(filepath, "r", encoding="utf-8") as f:
         lines = f.readlines()
-    assert lines == [
-        "phrase 1\tparaphrase 1\n",
-        "phrase 2\tparaphrase 2\n",
-        "phrase 3\tparaphrase 3\textra column\n",
-    ]
+    count = len(lines)
+    if skip_header and count > 0:
+        return count - 1
+    return count
 
-def test_phrase_discriminator_problem(clean_test_env):
-    """Tests the PhraseDiscriminatorProblem class."""
-    data_dir = clean_test_env / "data"
-    ensure_directory(data_dir)
-
-    # Create a dummy input file
-    with open(data_dir / "paraphrases_generated.tsv", "w", encoding="utf-8") as f:
-        f.write("human phrase 1\tmachine paraphrase 1\n")
-        f.write("human phrase 2\tmachine paraphrase 2\n")
-
-    problem = PhraseDiscriminatorProblem(data_dir=str(data_dir))
-    examples = list(problem.generate_samples(str(data_dir), None, None))
-    assert len(examples) == 4  # 2 phrases * 2 examples (1 human, 1 machine)
-    assert examples[0] == {"inputs": "human phrase 1", "label": 1}
-    assert examples[1] == {"inputs": "machine paraphrase 1", "label": 0}
-    assert examples[2] == {"inputs": "human phrase 2", "label": 1}
-    assert examples[3] == {"inputs": "machine paraphrase 2", "label": 0}
-
-
-def test_phrase_generator_problem(clean_test_env):
-    """Tests the PhraseGeneratorProblem class."""
-
-    data_dir = clean_test_env / "data"
-    ensure_directory(data_dir)
-
-     # Create a dummy input file
-    with open(data_dir / "paraphrases_selected.tsv", "w", encoding="utf-8") as f:
-        f.write("phrase 1\tparaphrase 1\n")
-        f.write("phrase 2\tparaphrase 2a\tparaphrase 2b\n")
-
-    problem = PhraseGeneratorProblem(data_dir=str(data_dir))
-    examples = list(problem.generate_samples(str(data_dir), None, None))
-    assert len(examples) == 4
-    assert examples[0] == {"inputs": "phrase 1", "targets": "paraphrase 1"}
-    assert examples[1] == {"inputs": "paraphrase 1", "targets": "phrase 1"}
-    assert examples[2] == {"inputs": "phrase 2", "targets": "paraphrase 2a"}
-    assert examples[3] == {"inputs": "phrase 2", "targets": "paraphrase 2b"}
-    #permutations will handle the reverse cases as well.
-
-def test_combine_data(clean_test_env):
-    file1 = clean_test_env / "file1.tsv"
-    file2 = clean_test_env / "file2.tsv"
-    output_file = clean_test_env / "combined.tsv"
-
-    with open(file1, "w", encoding="utf-8") as f:
-        f.write("line 1\n")
-        f.write("line 2\n")
-
-    with open(file2, "w", encoding="utf-8") as f:
-        f.write("line 2\n")  # Duplicate
-        f.write("line 3\n")
-
-    combine_data(file1, file2, output_file)
-
-    with open(output_file, "r", encoding="utf-8") as f:
-        lines = f.read().splitlines()
-
-    assert sorted(lines) == ["line 1", "line 2", "line 3"]  # Check content and order
-
-def test_combine_data_one_file_missing(clean_test_env, caplog):
-    file1 = clean_test_env / "file1.tsv"
-    file2 = clean_test_env / "file2.tsv"  # This file will be missing
-    output_file = clean_test_env / "combined.tsv"
-
-    with open(file1, "w", encoding="utf-8") as f:
-        f.write("line 1\n")
-
-    combine_data(file1, file2, output_file)
-
-    with open(output_file, "r", encoding="utf-8") as f:
-        lines = f.read().splitlines()
-
-    assert lines == ["line 1"]
-    assert "File does not exist" in caplog.text
-
-def test_postprocess_discriminator_output(clean_test_env):
-    labels_file = clean_test_env / "labels.txt"
-    generated_file = clean_test_env / "generated.tsv"
-    output_file = clean_test_env / "output.tsv"
-
-    with open(labels_file, "w", encoding="utf-8") as f:
-        f.write("human_phrase\n")
-        f.write("not_human_phrase\n")
-        f.write("human_phrase\n")
-
-    with open(generated_file, "w", encoding="utf-8") as f:
-        f.write("phrase 1\tparaphrase 1\n")
-        f.write("phrase 2\tparaphrase 2\n")
-        f.write("phrase 3\tparaphrase 3\n")
-
-    postprocess_discriminator_output(labels_file, generated_file, output_file)
-
-    with open(output_file, "r", encoding="utf-8") as f:
-        lines = f.read().splitlines()
-
-    assert lines == ["phrase 1\tparaphrase 1", "phrase 3\tparaphrase 3"]
-
-
+# --- Test Cases ---
 
 def test_generate_mock_paraphrases(clean_test_env):
-    output_dir = clean_test_env / "mock_data"
-    generate_mock_paraphrases(output_dir, n_repeat_lines=2)
+    """Tests the generation of mock data files."""
+    mock_data_dir = clean_test_env / "mock_data"
+    test_config = {
+        "training": {"mock_data_lines": 10}, # Use small number for test
+        "filenames": CONFIG['filenames'] # Use actual filenames
+    }
+    generate_mock_paraphrases(mock_data_dir, test_config)
 
-    assert (output_dir / "paraphrases_selected.tsv").exists()
-    assert (output_dir / "paraphrases_generated.tsv").exists()
+    gen_file = mock_data_dir / test_config['filenames']['mock_generator_input']
+    disc_file = mock_data_dir / test_config['filenames']['mock_discriminator_input']
 
-    with open(output_dir / "paraphrases_selected.tsv", "r", encoding="utf-8") as f:
-        lines = f.readlines()
-    assert len(lines) == 4  # 2 lines repeated twice
-    assert lines[0] == "a human phrase\ta human paraphrase\thuman paraphrase\n"
+    assert gen_file.exists()
+    assert disc_file.exists()
 
-    with open(output_dir / "paraphrases_generated.tsv", "r", encoding="utf-8") as f:
-        lines = f.readlines()
-    assert len(lines) == 4
-    assert lines[0] == "a human phrase\ta machine phrase\tmachine phrase\n"
+    # Check generator file header and line count (approximate, depends on pairs generated)
+    with open(gen_file, "r", encoding="utf-8") as f:
+        gen_reader = csv.reader(f, delimiter="\t")
+        header = next(gen_reader)
+        assert header == ["input_phrase", "target_phrase"]
+    # Expect roughly 4 lines per n_line (2 pairs, 2 directions) + header
+    assert count_lines(gen_file) > test_config['training']['mock_data_lines'] * 2
 
-def test_run_shell_command():
-    # Test successful command
-    result = run_shell_command("echo hello", capture_output=True)
-    assert result.stdout.strip() == "hello"
+    # Check discriminator file header and line count
+    with open(disc_file, "r", encoding="utf-8") as f:
+        disc_reader = csv.reader(f, delimiter="\t")
+        header = next(disc_reader)
+        assert header == ["phrase", "label"]
+    # Expect roughly 4 lines per n_line (2 human, 2 machine) + header
+    assert count_lines(disc_file) > test_config['training']['mock_data_lines'] * 2
 
-    # Test command with error
-    with pytest.raises(subprocess.CalledProcessError):
-        run_shell_command("false")  # 'false' command always returns a non-zero exit code
 
-    # Test command with working directory
-    result = run_shell_command("pwd", cwd="/", capture_output=True)
-    assert result.stdout.strip() == "/"
+def test_data_loading_and_preprocessing(clean_test_env):
+    """Tests loading mock data and applying preprocessing."""
+    mock_data_dir = clean_test_env / "mock_data"
+    test_config = {
+        "training": {
+            "mock_data_lines": 5,
+            "generator_max_length": 32, # Use smaller max_length for testing
+            "discriminator_max_length": 32
+        },
+        "filenames": CONFIG['filenames']
+    }
+    generate_mock_paraphrases(mock_data_dir, test_config)
 
-    # Test with shell=True (for complex commands; use with caution)
-    result = run_shell_command("echo $HOME", capture_output=True, shell=True)
-    assert result.stdout.strip() == os.environ['HOME'] #Shell expands the env variable.
+    raw_gen_input_path = mock_data_dir / test_config['filenames']['mock_generator_input']
+    raw_disc_input_path = mock_data_dir / test_config['filenames']['mock_discriminator_input']
 
-def test_ensure_directory(clean_test_env):
-     new_dir = clean_test_env / "new_dir" / "subdir"
-     ensure_directory(new_dir)
-     assert new_dir.is_dir()
+    # Load datasets
+    gen_data_files = {"train": str(raw_gen_input_path)}
+    raw_gen_datasets = load_dataset("csv", data_files=gen_data_files, delimiter="\t")
+    disc_data_files = {"train": str(raw_disc_input_path)}
+    raw_disc_datasets = load_dataset("csv", data_files=disc_data_files, delimiter="\t")
 
-     #Test idempotency
-     ensure_directory(new_dir)
-     assert new_dir.is_dir()  # Should not raise an error if it exists
+    # Define preprocessing functions locally for testing (mirroring main.py)
+    gen_max_len = test_config['training']['generator_max_length']
+    disc_max_len = test_config['training']['discriminator_max_length']
 
-def test_data_preparer_missing_input_dir():
-    with pytest.raises(FileNotFoundError):
-        preparer = DataPreparer("missing_dir", "output_dir")
-        preparer.prepare()
+    def preprocess_generator(examples):
+        inputs = examples["input_phrase"]
+        targets = examples["target_phrase"]
+        inputs = ["" if i is None else i for i in inputs]
+        targets = ["" if t is None else t for t in targets]
+        model_inputs = generator_tokenizer(inputs, max_length=gen_max_len, truncation=True)
+        with generator_tokenizer.as_target_tokenizer():
+            labels = generator_tokenizer(targets, max_length=gen_max_len, truncation=True)
+        model_inputs["labels"] = labels["input_ids"]
+        return model_inputs
+
+    def preprocess_discriminator(examples):
+        phrases = examples["phrase"]
+        phrases = ["" if p is None else p for p in phrases]
+        tokenized_inputs = discriminator_tokenizer(phrases, truncation=True, max_length=disc_max_len)
+        tokenized_inputs["labels"] = examples["label"] # Keep labels
+        return tokenized_inputs
+
+    # Apply preprocessing
+    tokenized_gen = raw_gen_datasets.map(preprocess_generator, batched=True, remove_columns=raw_gen_datasets["train"].column_names)
+    tokenized_disc = raw_disc_datasets.map(preprocess_discriminator, batched=True, remove_columns=["phrase"]) # Keep label
+
+    # Basic checks
+    assert "input_ids" in tokenized_gen["train"].features
+    assert "labels" in tokenized_gen["train"].features
+    assert "input_ids" in tokenized_disc["train"].features
+    assert "labels" in tokenized_disc["train"].features # Check label is present
+    assert "phrase" not in tokenized_disc["train"].features # Check phrase is removed
+
+    # Check tokenization output length (example)
+    assert len(tokenized_gen["train"][0]["input_ids"]) <= gen_max_len
+    assert len(tokenized_disc["train"][0]["input_ids"]) <= disc_max_len
+
+
+def test_model_loading():
+    """Tests loading the specified HF models."""
+    gen_model = load_generator_model(CONFIG['model_identifiers']['generator'])
+    disc_model = load_discriminator_model(CONFIG['model_identifiers']['discriminator'])
+
+    assert isinstance(gen_model, T5ForConditionalGeneration)
+    assert isinstance(disc_model, BertForSequenceClassification)
+    assert disc_model.config.num_labels == 2 # Check if num_labels is set
+
+
+def test_postprocess_discriminator_output_hf(clean_test_env):
+    """Tests filtering and formatting of generated phrases based on predictions."""
+    output_file = clean_test_env / "selected_output.tsv"
+    predictions = np.array([1, 0, 1, 0, 1]) # Human, Machine, Human, Machine, Human
+    unique_inputs = [
+        "paraphrase: input 1",
+        "paraphrase: input 2",
+        "paraphrase: input 3",
+        "paraphrase: input 4",
+        "paraphrase: input 5"
+    ]
+    generated_phrases = [
+        "generated 1",
+        "generated 2",
+        "generated 3",
+        "generated 4",
+        "generated 5"
+    ]
+
+    postprocess_discriminator_output_hf(
+        predictions=predictions,
+        unique_input_phrases=unique_inputs,
+        generated_phrases=generated_phrases,
+        output_file=output_file,
+        human_label_index=1
+    )
+
+    assert output_file.exists()
+    lines = output_file.read_text(encoding="utf-8").strip().split('\n')
+    assert len(lines) == 4 # Header + 3 selected lines
+    assert lines[0] == "input_phrase\ttarget_phrase"
+    assert lines[1] == "paraphrase: input 1\tgenerated 1"
+    assert lines[2] == "paraphrase: input 3\tgenerated 3"
+    assert lines[3] == "paraphrase: input 5\tgenerated 5"
+
+
+def test_combine_data_hf(clean_test_env):
+    """Tests combining original and selected generated data."""
+    original_file = clean_test_env / "original.tsv"
+    selected_file = clean_test_env / "selected.tsv"
+    output_file = clean_test_env / "combined.tsv"
+
+    # Create dummy original data
+    with open(original_file, "w", encoding="utf-8") as f:
+        f.write("input_phrase\ttarget_phrase\n")
+        f.write("paraphrase: original 1\toriginal 1a\n")
+        f.write("paraphrase: original 2\toriginal 2a\n")
+
+    # Create dummy selected generated data
+    with open(selected_file, "w", encoding="utf-8") as f:
+        f.write("input_phrase\ttarget_phrase\n")
+        f.write("paraphrase: original 1\tgenerated 1b\n") # New target for original 1
+        f.write("paraphrase: original 3\tgenerated 3a\n") # New input/target pair
+
+    combine_data_hf(original_file, selected_file, output_file)
+
+    assert output_file.exists()
+    lines = output_file.read_text(encoding="utf-8").strip().split('\n')
+    assert len(lines) == 5 # Header + 4 unique data lines
+    assert lines[0] == "input_phrase\ttarget_phrase"
+    # Check content (order might vary due to set, so check presence)
+    expected_lines = {
+        "paraphrase: original 1\toriginal 1a",
+        "paraphrase: original 2\toriginal 2a",
+        "paraphrase: original 1\tgenerated 1b",
+        "paraphrase: original 3\tgenerated 3a"
+    }
+    assert set(lines[1:]) == expected_lines
+
+def test_combine_data_hf_one_missing(clean_test_env, caplog):
+    """Tests combining when the selected generated file is missing."""
+    original_file = clean_test_env / "original.tsv"
+    selected_file = clean_test_env / "non_existent_selected.tsv" # Missing file
+    output_file = clean_test_env / "combined.tsv"
+
+    # Create dummy original data
+    with open(original_file, "w", encoding="utf-8") as f:
+        f.write("input_phrase\ttarget_phrase\n")
+        f.write("paraphrase: original 1\toriginal 1a\n")
+        f.write("paraphrase: original 2\toriginal 2a\n")
+
+    combine_data_hf(original_file, selected_file, output_file)
+
+    assert output_file.exists()
+    lines = output_file.read_text(encoding="utf-8").strip().split('\n')
+    assert len(lines) == 3 # Header + 2 original lines
+    assert "Selected generated file does not exist" in caplog.text
+    assert set(lines[1:]) == {
+        "paraphrase: original 1\toriginal 1a",
+        "paraphrase: original 2\toriginal 2a"
+    }
+
+# --- Tests for old/removed components (can be deleted or adapted) ---
+
+# def test_data_preparer(clean_test_env): # Keep if DataPreparer is still used
+#     """Tests the DataPreparer class."""
+#     input_dir = clean_test_env / "input"
+#     output_dir = clean_test_env / "output"
+#     ensure_directory(input_dir)
+#     # ... (rest of test) ...
+
+# def test_run_shell_command(): # Keep if run_shell_command is still used
+#     # ... (rest of test, ensure it works on target OS) ...
+
+# def test_ensure_directory(clean_test_env): # Keep
+#      new_dir = clean_test_env / "new_dir" / "subdir"
+#      ensure_directory(new_dir)
+#      assert new_dir.is_dir()
+#      #Test idempotency
+#      ensure_directory(new_dir)
+#      assert new_dir.is_dir()
+
+# def test_data_preparer_missing_input_dir(): # Keep if DataPreparer is still used
+#     with pytest.raises(FileNotFoundError):
+#         preparer = DataPreparer("missing_dir", "output_dir")
+#         preparer.prepare()

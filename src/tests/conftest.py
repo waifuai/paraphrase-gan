@@ -1,4 +1,6 @@
 # conftest.py (Fixtures)
+import pytest
+from src.main import ensure_directory
 @pytest.fixture(scope="module")
 def test_data():
     return {
