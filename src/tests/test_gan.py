@@ -6,20 +6,20 @@ import numpy as np
 from pathlib import Path
 from datasets import load_dataset, Dataset
 
-# Import necessary components from src.main
-# Note: We might need to adjust imports if functions are nested or rely on global state
-from src.main import (
-    CONFIG,
-    ensure_directory,
+# Import necessary components from the refactored modules
+from src.config import CONFIG
+from src.utils import ensure_directory
+from src.data_utils import (
     generate_mock_paraphrases,
-    load_generator_model,
-    load_discriminator_model,
-    # Preprocessing functions are defined inside main, test them via map
     postprocess_discriminator_output_hf,
-    combine_data_hf,
-    generator_tokenizer, # Assuming global tokenizer access for tests
-    discriminator_tokenizer # Assuming global tokenizer access for tests
+    combine_data_hf
 )
+from src.model_utils import (
+    load_generator_model,
+    load_discriminator_model
+)
+# Tokenizers are initialized globally in main.py, import from there for tests
+from src.main import generator_tokenizer, discriminator_tokenizer
 from transformers import (
     T5ForConditionalGeneration,
     BertForSequenceClassification,
