@@ -1,8 +1,6 @@
 pytest
-transformers
-datasets
-accelerate
-evaluate
-torch
-sentencepiece # Required by T5 tokenizer
-protobuf
+datasets # Still useful for handling TSV data potentially
+pandas # More convenient for TSV handling
+numpy # Often a dependency, keep for safety
+google-generativeai # Core library for Gemini API
+pathlib # For handling paths, especially home directory

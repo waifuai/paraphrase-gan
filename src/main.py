@@ -1,164 +1,117 @@
 import sys
 import time
+import logging
 from typing import Dict, Any
-
-from transformers import AutoTokenizer
-from datasets import load_dataset
+import pandas as pd
+import google.generativeai as genai
 
 # Import components from the new modules
 from .config import CONFIG
-from .utils import logger, ensure_directory
-from .data_utils import generate_mock_paraphrases
-from .model_utils import load_generator_model, load_discriminator_model
-from .gan import gan_prep_hf, gan_loop_iteration_hf
-
-# --- Initialize Tokenizers ---
-# Use try-except blocks for robustness
-try:
-    logger.info(f"Loading generator tokenizer: {CONFIG['model_identifiers']['generator']}")
-    generator_tokenizer = AutoTokenizer.from_pretrained(CONFIG['model_identifiers']['generator'])
-except Exception as e:
-    logger.critical(f"Failed to load generator tokenizer: {e}")
-    sys.exit(1)
-
-try:
-    logger.info(f"Loading discriminator tokenizer: {CONFIG['model_identifiers']['discriminator']}")
-    discriminator_tokenizer = AutoTokenizer.from_pretrained(CONFIG['model_identifiers']['discriminator'])
-except Exception as e:
-    logger.critical(f"Failed to load discriminator tokenizer: {e}")
-    sys.exit(1)
-
+from .utils import (
+    logger, # Logger is now initialized in utils
+    ensure_directory,
+    load_gemini_api_key,
+    generate_mock_paraphrases # Mock data generation using pandas
+)
+# Import the loop iteration function from the renamed file
+from .prompt_loop import run_prompt_refinement_iteration
 
 # --- Main Script Execution ---
 def main(config: Dict[str, Any]):
-    """Main function to execute the GAN workflow."""
-    logger.info("========== Starting GAN Paraphrase Generation ==========")
+    """Main function to execute the Gemini prompt refinement workflow."""
+    logger.info("========== Starting Gemini Paraphrase Prompt Refinement ==========")
+
+    # --- Initial Setup ---
+    paths = config['paths']
+    filenames = config['filenames']
+    gemini_config = config['gemini']
+    loop_config = config['loop_control']
 
     # Create essential directory structure from config
-    paths = config['paths']
-    filenames = config['filenames'] # Get filenames config
     ensure_directory(paths['logs_dir'])
     ensure_directory(paths['raw_data_dir'])
     ensure_directory(paths['processed_data_dir'])
-    ensure_directory(paths['generator_models'])
-    ensure_directory(paths['discriminator_models'])
-    ensure_directory(paths['generator_processed_data'])
-    ensure_directory(paths['discriminator_processed_data'])
-    ensure_directory(paths['generator_generated_output']) # Ensure loop output dirs exist
-    ensure_directory(paths['discriminator_classified_output'])
-    # Initial/Latest model dirs will be created by training/copying
+    ensure_directory(paths['selected_paraphrases_dir'])
+    ensure_directory(paths['prompt_history_dir'])
 
-    # Generate initial mock data (if raw data files don't exist)
-    raw_gen_input_path = paths['raw_data_dir'] / filenames['mock_generator_input']
-    raw_disc_input_path = paths['raw_data_dir'] / filenames['mock_discriminator_input']
-    if not raw_gen_input_path.exists() or not raw_disc_input_path.exists():
-        logger.info("Raw data files not found. Generating mock data...")
-        try:
-            # Use generate_mock_paraphrases from data_utils
-            generate_mock_paraphrases(paths['raw_data_dir'], config)
-        except Exception as e:
-            logger.critical(f"Failed to generate mock data. Cannot proceed. Error: {e}")
-            sys.exit(1)
-    else:
-        logger.info("Raw data files found. Skipping mock data generation.")
-
-
-    # --- Load and Preprocess Data using Hugging Face datasets ---
-    logger.info("Loading and preprocessing data...")
+    # --- Load API Key and Configure Gemini ---
     try:
-        # Load the mock TSV files
-        gen_data_files = {"train": str(raw_gen_input_path)}
-        raw_gen_datasets = load_dataset("csv", data_files=gen_data_files, delimiter="\t")
-        disc_data_files = {"train": str(raw_disc_input_path)}
-        raw_disc_datasets = load_dataset("csv", data_files=disc_data_files, delimiter="\t")
-
-        # --- Define Preprocessing Functions (kept here for clarity, could move) ---
-        max_input_length = config['training']['generator_max_length']
-        max_target_length = config['training']['generator_max_length']
-        discriminator_max_length = config['training']['discriminator_max_length']
-
-        def preprocess_generator(examples):
-            """Tokenizes generator data (input and target phrases)."""
-            inputs = examples["input_phrase"]
-            targets = examples["target_phrase"]
-            inputs = ["" if i is None else i for i in inputs]
-            targets = ["" if t is None else t for t in targets]
-            model_inputs = generator_tokenizer(inputs, max_length=max_input_length, truncation=True)
-            with generator_tokenizer.as_target_tokenizer():
-                labels = generator_tokenizer(targets, max_length=max_target_length, truncation=True)
-            model_inputs["labels"] = labels["input_ids"]
-            return model_inputs
-
-        def preprocess_discriminator(examples):
-            """Tokenizes discriminator data (phrases)."""
-            phrases = examples["phrase"]
-            phrases = ["" if p is None else p for p in phrases]
-            tokenized_inputs = discriminator_tokenizer(phrases, truncation=True, max_length=discriminator_max_length)
-            tokenized_inputs["labels"] = examples["label"] # Pass labels through
-            return tokenized_inputs
-
-        # --- Apply Preprocessing ---
-        logger.info("Applying preprocessing...")
-        tokenized_gen_datasets = raw_gen_datasets.map(preprocess_generator, batched=True, remove_columns=raw_gen_datasets["train"].column_names)
-        tokenized_disc_datasets = raw_disc_datasets.map(preprocess_discriminator, batched=True, remove_columns=["phrase"])
-        logger.info(f"Generator dataset tokenized: {tokenized_gen_datasets}")
-        logger.info(f"Discriminator dataset tokenized: {tokenized_disc_datasets}")
-
-    except Exception as e:
-        logger.critical(f"Failed during data loading/preprocessing. Cannot proceed. Error: {e}", exc_info=True)
+        api_key = load_gemini_api_key(str(paths['api_key_file'])) # Pass path from config
+        genai.configure(api_key=api_key)
+        logger.info(f"Configuring Gemini model: {gemini_config['model_name']}")
+        # Configure the specific model (add generation/safety settings if needed)
+        gemini_model = genai.GenerativeModel(gemini_config['model_name'])
+        logger.info("Gemini API configured successfully.")
+    except (FileNotFoundError, ValueError, RuntimeError, Exception) as e:
+        logger.critical(f"Failed to initialize Gemini API: {e}. Please ensure your API key is correctly placed and valid.")
         sys.exit(1)
 
-    # --- Load Initial Models ---
-    logger.info("Loading initial Hugging Face models...")
-    # Use load functions from model_utils
-    generator_model = load_generator_model(config['model_identifiers']['generator'])
-    discriminator_model = load_discriminator_model(config['model_identifiers']['discriminator'])
-    logger.info("Initial models loaded.")
-
-    # --- GAN Prep using HF Trainer ---
-    logger.info("Starting GAN preparation (initial training)...")
-    try:
-        # Use gan_prep_hf from gan module
-        gan_prep_hf(
-            config=config,
-            gen_model=generator_model,
-            disc_model=discriminator_model,
-            gen_tokenizer=generator_tokenizer,
-            disc_tokenizer=discriminator_tokenizer,
-            tokenized_gen_dataset=tokenized_gen_datasets['train'],
-            tokenized_disc_dataset=tokenized_disc_datasets['train']
-        )
-    except Exception as e:
-         logger.critical(f"GAN preparation (initial training) failed. Cannot proceed. Error: {e}", exc_info=True)
-         sys.exit(1)
-
-
-    # Continuous GAN loop
-    iteration = 0
-    while True:
-        iteration += 1
-        logger.info(f"========== Starting GAN Iteration {iteration} ==========")
-        # --- Call the HF GAN loop iteration ---
+    # --- Load or Generate Input Data ---
+    input_data_path = paths['raw_data_dir'] / filenames['mock_input_data']
+    input_df = None
+    if input_data_path.exists():
         try:
-            # Use gan_loop_iteration_hf from gan module
-            gan_loop_iteration_hf(
-                config=config,
-                gen_tokenizer=generator_tokenizer,
-                disc_tokenizer=discriminator_tokenizer
+            input_df = pd.read_csv(input_data_path, sep='\t')
+            # Validate expected column
+            if 'input_text' not in input_df.columns:
+                 logger.error(f"Input file {input_data_path} missing required 'input_text' column.")
+                 raise ValueError("Missing 'input_text' column")
+            logger.info(f"Loaded {len(input_df)} input phrases from {input_data_path}")
+            # Optionally limit samples if file is large
+            if len(input_df) > loop_config['mock_data_samples']:
+                logger.warning(f"Input file has {len(input_df)} samples, using first {loop_config['mock_data_samples']} as configured.")
+                input_df = input_df.head(loop_config['mock_data_samples'])
+
+        except Exception as e:
+            logger.error(f"Failed to load or validate input data from {input_data_path}: {e}. Will attempt to generate mock data.")
+            input_df = None # Reset to trigger mock generation
+
+    if input_df is None:
+        logger.info(f"Generating {loop_config['mock_data_samples']} mock input phrases...")
+        try:
+            input_df = generate_mock_paraphrases(loop_config['mock_data_samples'])
+            # Save the generated mock data for future runs
+            ensure_directory(paths['raw_data_dir'])
+            input_df.to_csv(input_data_path, sep='\t', index=False)
+            logger.info(f"Saved generated mock data to {input_data_path}")
+        except Exception as e:
+            logger.critical(f"Failed to generate mock data: {e}")
+            sys.exit(1)
+
+    # --- Prompt Refinement Loop ---
+    current_prompt = gemini_config['generation_prompt_template']
+    max_iterations = loop_config['max_iterations']
+
+    for iteration in range(1, max_iterations + 1):
+        logger.info(f"========== Starting Prompt Loop Iteration {iteration}/{max_iterations} ==========")
+        try:
+            iteration_results, next_prompt = run_prompt_refinement_iteration(
+                iteration=iteration,
+                current_generator_prompt=current_prompt,
+                gemini_model=gemini_model,
+                input_data=input_df, # Pass the DataFrame
+                config=config
             )
-            logger.info(f"========== Completed GAN Iteration {iteration} ==========")
-            # Optional: Add delay?
-            # time.sleep(5)
+            current_prompt = next_prompt # Update prompt for the next loop
+            logger.info(f"Iteration {iteration} complete. Prompt for next iteration updated.")
+            # Optional: Add delay between iterations?
+            # time.sleep(config.get('iteration_delay', 0))
+
         except KeyboardInterrupt:
-            logger.info("KeyboardInterrupt received. Exiting GAN loop.")
+            logger.info("KeyboardInterrupt received. Exiting refinement loop.")
             break
         except Exception as e:
-            logger.error(f"Error during GAN loop iteration {iteration}: {e}", exc_info=True)
+            logger.error(f"Error during prompt refinement loop iteration {iteration}: {e}", exc_info=True)
+            # Decide whether to break or try to continue
             logger.error("Attempting to continue to the next iteration after delay...")
-            time.sleep(10) # Delay before next attempt
+            time.sleep(10) # Delay before potentially trying again
+
+    logger.info("========== Prompt Refinement Loop Finished ==========")
 
 
 if __name__ == "__main__":
+    # Setup logger - moved inside main or called globally?
+    # logger = setup_logger(CONFIG['paths']['logs_dir'], CONFIG) # Ensure logger is set up
     try:
         main(CONFIG)
     except KeyboardInterrupt:
