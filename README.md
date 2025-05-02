@@ -4,7 +4,7 @@ This project uses the Google Gemini API to iteratively generate paraphrases and 
 
 **Core Idea:** A loop generates paraphrases for input phrases using a dynamic prompt, classifies them using another Gemini prompt (human vs. machine), and then refines the *generator prompt* for the next iteration based on the classification results.
 
-**Gemini Model Used:** Configured in `src/config.py` (e.g., `gemini-2.5-flash-preview-04-17`)
+**Gemini Model Used:** Configured in `src/config.py` (e.g., `gemini-2.5-pro-preview-03-25`)
 
 ## Project Structure
 
