@@ -27,7 +27,7 @@ CONFIG: Dict[str, Any] = {
         "loop_results": "loop_results_{iteration}.json", # Store metrics/results per iteration
     },
     "gemini": {
-        "model_name": "gemini-2.5-pro-preview-05-06", # Or the specific model you want to use
+        "model_name": "gemini-2.5-pro", # Or the specific model you want to use
         "generation_prompt_template": "Generate a concise paraphrase for the following phrase, focusing on maintaining the original meaning but using different wording:\n\nPhrase: {text}\nParaphrase:",
         "classification_prompt_template": "Does the following phrase sound like natural, fluent, human-written English? Answer only 'human' or 'machine'.\n\nPhrase: {text}\nClassification:",
         "max_retries": 3,
