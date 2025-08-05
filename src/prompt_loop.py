@@ -1,13 +1,11 @@
 import sys
 import time
 import json
-from pathlib import Path
 from typing import Dict, Any, List, Tuple
 import pandas as pd
-import google.generativeai as genai
+from google import genai
 
-# Import necessary components from other modules
-from .config import CONFIG, refine_generator_prompt # Import refine function
+from .config import CONFIG, refine_generator_prompt
 from .utils import (
     logger,
     ensure_directory,
@@ -19,7 +17,7 @@ from .utils import (
 def run_prompt_refinement_iteration(
     iteration: int,
     current_generator_prompt: str,
-    gemini_model: genai.GenerativeModel,
+    genai_client: genai.Client,
     input_data: pd.DataFrame,
     config: Dict[str, Any],
 ) -> Tuple[Dict[str, Any], str]:
@@ -42,6 +40,7 @@ def run_prompt_refinement_iteration(
     paths = config['paths']
     filenames = config['filenames']
     gemini_config = config['gemini']
+    model_name = gemini_config['model_name']
     loop_config = config['loop_control']
 
     # --- Prepare for Iteration ---
@@ -67,7 +66,8 @@ def run_prompt_refinement_iteration(
             # 1. Generate Paraphrase
             generated_text = gemini_generate_paraphrase(
                 input_text=input_text,
-                model=gemini_model,
+                client=genai_client,
+                model_name=model_name,
                 prompt_template=current_generator_prompt,
                 max_retries=gemini_config['max_retries'],
                 delay=gemini_config['retry_delay']
@@ -87,7 +87,8 @@ def run_prompt_refinement_iteration(
                 # 2. Classify Paraphrase
                 classification = gemini_classify_paraphrase(
                     text=generated_text,
-                    model=gemini_model,
+                    client=genai_client,
+                    model_name=model_name,
                     prompt_template=gemini_config['classification_prompt_template'],
                     max_retries=gemini_config['max_retries'],
                     delay=gemini_config['retry_delay']

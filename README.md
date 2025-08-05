@@ -2,9 +2,11 @@
 
 This project uses the Google Gemini API to iteratively generate paraphrases and refine the generation prompt based on classification feedback. Instead of training local models, it focuses on prompt engineering.
 
-**Core Idea:** A loop generates paraphrases for input phrases using a dynamic prompt, classifies them using another Gemini prompt (human vs. machine), and then refines the *generator prompt* for the next iteration based on the classification results.
+Core Idea: A loop generates paraphrases for input phrases using a dynamic prompt, classifies them using another Gemini prompt (human vs. machine), and then refines the generator prompt for the next iteration based on the classification results.
 
-**Gemini Model Used:** Configured in `src/config.py` (e.g., `gemini-2.5-pro`)
+Gemini Model Used: Configured in src/config.py (e.g., gemini-2.5-pro)
+
+SDK: Migrated to the official Google GenAI SDK using a centralized client (google-genai).
 
 ## Project Structure
 
@@ -34,7 +36,7 @@ This project uses the Google Gemini API to iteratively generate paraphrases and 
     *   `pip`
     *   Git
     *   `uv` (Optional, but recommended for environment management as per instructions)
-    *   **Google Gemini API Key:** Obtain an API key from Google AI Studio ([https://aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)).
+    *   Google Gemini API Key: Obtain an API key from Google AI Studio (https://aistudio.google.com/app/apikey).
 
 2.  **Clone the repository:**
 
@@ -60,22 +62,22 @@ This project uses the Google Gemini API to iteratively generate paraphrases and 
     # Windows: .venv\Scripts\activate
     ```
 
-4.  **Install dependencies:**
+4.  Install dependencies:
 
     ```bash
-    # Ensure your virtual environment is activated
-    # Using uv (recommended)
-    python -m uv pip install -r requirements.txt
-
-    # OR using pip
-    # python -m pip install -r requirements.txt
+    .venv/Scripts/python.exe -m uv pip install -r requirements.txt
+    # For contributors/CI
+    .venv/Scripts/python.exe -m uv pip install -r requirements-dev.txt
     ```
-    The `requirements.txt` file includes: `pytest`, `pandas`, `numpy`, `google-generativeai`, `pathlib`.
+    The requirements now use the Google GenAI SDK (google-genai) and split runtime vs dev.
 
-5.  **Set up API Key:**
-    *   Create a file named `.api-gemini` in your home directory (e.g., `C:/Users/YourUser/.api-gemini` on Windows, `~/.api-gemini` on Linux/macOS).
-    *   Paste your Gemini API key into this file and save it.
-    *   **Ensure this file is added to your global `.gitignore` or the project's `.gitignore` to prevent accidentally committing your key.** (The project `.gitignore` should be updated).
+5.  Set up API Key (env-first with file fallback):
+    - Preferred: set GEMINI_API_KEY (or GOOGLE_API_KEY)
+      ```bash
+      export GEMINI_API_KEY="your_key_here"
+      ```
+    - Fallback file: create ~/.api-gemini containing only the key.
+      On Windows, path example: C:/Users/YourUser/.api-gemini
 
 ## Usage
 
@@ -131,7 +133,7 @@ python -m pytest src/tests/
 -   **`prompt_loop.py`:** Logic for a single refinement iteration.
 -   **`utils.py`:** Gemini API wrappers, helpers, mock data generation.
 -   **`config.py`:** Configuration, initial prompts, refinement logic placeholder.
--   **`google-generativeai`:** The core library for interacting with the Gemini API.
+-   Google GenAI SDK (google-genai): The core library for interacting with the Gemini API using a centralized client.
 -   **`pandas`:** Used for handling input data and saving results.
 
 ## Key Changes from Previous (HF GAN) Version

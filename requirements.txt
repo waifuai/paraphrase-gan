@@ -1,6 +1,10 @@
-pytest
-datasets # Still useful for handling TSV data potentially
-pandas # More convenient for TSV handling
-numpy # Often a dependency, keep for safety
-google-generativeai # Core library for Gemini API
-pathlib # For handling paths, especially home directory
+# Runtime dependencies (flexible pins suitable for OSS consumers)
+
+# Google GenAI SDK (Client-centric API)
+google-genai~=1.28
+
+# Data utilities
+datasets
+pandas
+numpy
+pathlib

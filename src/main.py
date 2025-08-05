@@ -3,17 +3,15 @@ import time
 import logging
 from typing import Dict, Any
 import pandas as pd
-import google.generativeai as genai
+from google import genai
 
-# Import components from the new modules
 from .config import CONFIG
 from .utils import (
-    logger, # Logger is now initialized in utils
+    logger,
     ensure_directory,
     load_gemini_api_key,
-    generate_mock_paraphrases # Mock data generation using pandas
+    generate_mock_paraphrases
 )
-# Import the loop iteration function from the renamed file
 from .prompt_loop import run_prompt_refinement_iteration
 
 # --- Main Script Execution ---
@@ -36,12 +34,9 @@ def main(config: Dict[str, Any]):
 
     # --- Load API Key and Configure Gemini ---
     try:
-        api_key = load_gemini_api_key(str(paths['api_key_file'])) # Pass path from config
-        genai.configure(api_key=api_key)
-        logger.info(f"Configuring Gemini model: {gemini_config['model_name']}")
-        # Configure the specific model (add generation/safety settings if needed)
-        gemini_model = genai.GenerativeModel(gemini_config['model_name'])
-        logger.info("Gemini API configured successfully.")
+        api_key = load_gemini_api_key(str(paths['api_key_file']))
+        client = genai.Client(api_key=api_key)
+        logger.info(f"Configured Google GenAI client for model: {gemini_config['model_name']}")
     except (FileNotFoundError, ValueError, RuntimeError, Exception) as e:
         logger.critical(f"Failed to initialize Gemini API: {e}. Please ensure your API key is correctly placed and valid.")
         sys.exit(1)
@@ -88,8 +83,8 @@ def main(config: Dict[str, Any]):
             iteration_results, next_prompt = run_prompt_refinement_iteration(
                 iteration=iteration,
                 current_generator_prompt=current_prompt,
-                gemini_model=gemini_model,
-                input_data=input_df, # Pass the DataFrame
+                genai_client=client,
+                input_data=input_df,
                 config=config
             )
             current_prompt = next_prompt # Update prompt for the next loop
