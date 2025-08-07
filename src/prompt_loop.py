@@ -1,7 +1,7 @@
 import sys
 import time
 import json
-from typing import Dict, Any, List, Tuple
+from typing import Dict, Any, List, Tuple, Optional
 import pandas as pd
 from google import genai
 
@@ -9,15 +9,14 @@ from .config import CONFIG, refine_generator_prompt
 from .utils import (
     logger,
     ensure_directory,
-    gemini_generate_paraphrase,
-    gemini_classify_paraphrase,
     postprocess_discriminator_output_gemini
 )
+from .provider_facade import generate as provider_generate, classify as provider_classify
 
 def run_prompt_refinement_iteration(
     iteration: int,
     current_generator_prompt: str,
-    genai_client: genai.Client,
+    genai_client: Optional[genai.Client],
     input_data: pd.DataFrame,
     config: Dict[str, Any],
 ) -> Tuple[Dict[str, Any], str]:
@@ -40,7 +39,7 @@ def run_prompt_refinement_iteration(
     paths = config['paths']
     filenames = config['filenames']
     gemini_config = config['gemini']
-    model_name = gemini_config['model_name']
+    # model_name resolved by provider facade; keep template sources in config
     loop_config = config['loop_control']
 
     # --- Prepare for Iteration ---
@@ -63,14 +62,11 @@ def run_prompt_refinement_iteration(
             processed_count += 1
             logger.debug(f"Processing input: '{input_text}'")
 
-            # 1. Generate Paraphrase
-            generated_text = gemini_generate_paraphrase(
-                input_text=input_text,
-                client=genai_client,
-                model_name=model_name,
+            # 1. Generate Paraphrase via provider facade
+            generated_text = provider_generate(
+                text=input_text,
                 prompt_template=current_generator_prompt,
-                max_retries=gemini_config['max_retries'],
-                delay=gemini_config['retry_delay']
+                client=genai_client
             )
 
             result_entry = {
@@ -84,14 +80,11 @@ def run_prompt_refinement_iteration(
                 result_entry['generated_text'] = generated_text
                 logger.debug(f"Generated: '{generated_text}'")
 
-                # 2. Classify Paraphrase
-                classification = gemini_classify_paraphrase(
+                # 2. Classify Paraphrase via provider facade
+                classification = provider_classify(
                     text=generated_text,
-                    client=genai_client,
-                    model_name=model_name,
-                    prompt_template=gemini_config['classification_prompt_template'],
-                    max_retries=gemini_config['max_retries'],
-                    delay=gemini_config['retry_delay']
+                    classification_prompt_template=gemini_config['classification_prompt_template'],
+                    client=genai_client
                 )
 
                 if classification:

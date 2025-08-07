@@ -1,12 +1,21 @@
-# Gemini API-Based Paraphrase Prompt Refinement
+# API-Based Paraphrase Prompt Refinement (OpenRouter default)
 
-This project uses the Google Gemini API to iteratively generate paraphrases and refine the generation prompt based on classification feedback. Instead of training local models, it focuses on prompt engineering.
+This project can use either OpenRouter or Google Gemini to iteratively generate paraphrases and refine the generation prompt based on classification feedback. OpenRouter is the default provider.
 
-Core Idea: A loop generates paraphrases for input phrases using a dynamic prompt, classifies them using another Gemini prompt (human vs. machine), and then refines the generator prompt for the next iteration based on the classification results.
+Core Idea: A loop generates paraphrases for input phrases using a dynamic prompt, classifies them (human vs machine), and then refines the generator prompt for the next iteration based on the classification results.
 
-Gemini Model Used: Configured in src/config.py (e.g., gemini-2.5-pro)
+Default Provider and Model Files:
+- ~/.model-openrouter: model id for OpenRouter (default: openrouter/horizon-beta)
+- ~/.model-gemini: model id for Gemini (default: gemini-2.5-pro)
 
-SDK: Migrated to the official Google GenAI SDK using a centralized client (google-genai).
+Provider Selection:
+- PROVIDER env var controls provider: "openrouter" (default) or "gemini"
+
+Credentials:
+- OpenRouter: OPENROUTER_API_KEY or ~/.api-openrouter
+- Gemini: GEMINI_API_KEY or GOOGLE_API_KEY or ~/.api-gemini
+
+Gemini SDK remains available via google-genai when PROVIDER=gemini.
 
 ## Project Structure
 
@@ -71,13 +80,22 @@ SDK: Migrated to the official Google GenAI SDK using a centralized client (googl
     ```
     The requirements now use the Google GenAI SDK (google-genai) and split runtime vs dev.
 
-5.  Set up API Key (env-first with file fallback):
-    - Preferred: set GEMINI_API_KEY (or GOOGLE_API_KEY)
-      ```bash
-      export GEMINI_API_KEY="your_key_here"
-      ```
-    - Fallback file: create ~/.api-gemini containing only the key.
-      On Windows, path example: C:/Users/YourUser/.api-gemini
+5.  Set up API Keys (env-first with file fallback):
+- OpenRouter (default provider):
+  export OPENROUTER_API_KEY="your_key_here"
+  or create ~/.api-openrouter with the key only.
+- Gemini (when PROVIDER=gemini):
+  export GEMINI_API_KEY="your_key_here"
+  or export GOOGLE_API_KEY
+  or create ~/.api-gemini with the key only.
+
+6.  Select Provider and Model:
+- Default is OpenRouter; to force Gemini:
+  export PROVIDER=gemini
+- Model resolution:
+  echo "openrouter/horizon-beta" > ~/.model-openrouter
+  echo "gemini-2.5-pro" > ~/.model-gemini
+  If files are absent, defaults are used.
 
 ## Usage
 

@@ -6,6 +6,7 @@ import pandas as pd
 from google import genai
 
 from .config import CONFIG
+from .provider_models import provider_from_env, model_for_provider
 from .utils import (
     logger,
     ensure_directory,
@@ -32,14 +33,20 @@ def main(config: Dict[str, Any]):
     ensure_directory(paths['selected_paraphrases_dir'])
     ensure_directory(paths['prompt_history_dir'])
 
-    # --- Load API Key and Configure Gemini ---
-    try:
-        api_key = load_gemini_api_key(str(paths['api_key_file']))
-        client = genai.Client(api_key=api_key)
-        logger.info(f"Configured Google GenAI client for model: {gemini_config['model_name']}")
-    except (FileNotFoundError, ValueError, RuntimeError, Exception) as e:
-        logger.critical(f"Failed to initialize Gemini API: {e}. Please ensure your API key is correctly placed and valid.")
-        sys.exit(1)
+    # --- Determine provider and optionally configure Gemini client ---
+    provider = provider_from_env()
+    client = None
+    if provider == "gemini":
+        try:
+            api_key = load_gemini_api_key(str(paths['api_key_file']))
+            client = genai.Client(api_key=api_key)
+            resolved_model = model_for_provider("gemini")
+            logger.info(f"Configured Google GenAI client for model: {resolved_model}")
+        except (FileNotFoundError, ValueError, RuntimeError, Exception) as e:
+            logger.critical(f"Failed to initialize Gemini API: {e}. Please ensure your API key is correctly placed and valid.")
+            sys.exit(1)
+    else:
+        logger.info("Using OpenRouter provider; no Gemini client initialization required.")
 
     # --- Load or Generate Input Data ---
     input_data_path = paths['raw_data_dir'] / filenames['mock_input_data']
