@@ -1,7 +1,7 @@
 from pathlib import Path
 import os
 
-DEFAULT_OPENROUTER_MODEL = "openrouter/horizon-beta"
+DEFAULT_OPENROUTER_MODEL = "deepseek/deepseek-chat-v3-0324:free"
 DEFAULT_GEMINI_MODEL = "gemini-2.5-pro"
 
 MODEL_FILE_OPENROUTER = Path.home() / ".model-openrouter"

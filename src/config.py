@@ -2,8 +2,30 @@ import logging
 from pathlib import Path
 from typing import Dict, Any
 
+# Set up logger for this module
+logger = logging.getLogger(__name__)
+
 # Define project root based on this file's location
 PROJECT_ROOT = Path(__file__).parent.parent
+
+
+def get_env_bool(key: str, default: bool = False) -> bool:
+    """Get boolean value from environment variable."""
+    value = os.getenv(key, str(default)).lower()
+    return value in ('true', '1', 'yes', 'on')
+
+
+def get_env_int(key: str, default: int) -> int:
+    """Get integer value from environment variable."""
+    try:
+        return int(os.getenv(key, str(default)))
+    except ValueError:
+        return default
+
+
+def get_env_str(key: str, default: str) -> str:
+    """Get string value from environment variable."""
+    return os.getenv(key, default)
 
 CONFIG: Dict[str, Any] = {
     "paths": {
@@ -27,23 +49,34 @@ CONFIG: Dict[str, Any] = {
         "loop_results": "loop_results_{iteration}.json", # Store metrics/results per iteration
     },
     "gemini": {
-        "model_name": "gemini-2.5-pro", # Or the specific model you want to use
-        "generation_prompt_template": "Generate a concise paraphrase for the following phrase, focusing on maintaining the original meaning but using different wording:\n\nPhrase: {text}\nParaphrase:",
-        "classification_prompt_template": "Does the following phrase sound like natural, fluent, human-written English? Answer only 'human' or 'machine'.\n\nPhrase: {text}\nClassification:",
-        "max_retries": 3,
-        "retry_delay": 5, # Initial delay in seconds
+        "model_name": get_env_str('GEMINI_MODEL', "gemini-2.5-pro"),  # Or the specific model you want to use
+        "generation_prompt_template": get_env_str(
+            'GENERATION_PROMPT_TEMPLATE',
+            "Generate a concise paraphrase for the following phrase, focusing on maintaining the original meaning but using different wording:\n\nPhrase: {text}\nParaphrase:"
+        ),
+        "classification_prompt_template": get_env_str(
+            'CLASSIFICATION_PROMPT_TEMPLATE',
+            "Does the following phrase sound like natural, fluent, human-written English? Answer only 'human' or 'machine'.\n\nPhrase: {text}\nClassification:"
+        ),
+        "max_retries": get_env_int('API_MAX_RETRIES', 3),
+        "retry_delay": get_env_int('API_RETRY_DELAY', 5),  # Initial delay in seconds
     },
     "loop_control": {
-        "max_iterations": 10, # Limit the number of iterations for testing/cost control
-        "mock_data_samples": 50, # Number of input phrases per iteration
-        "batch_size": 5, # How many phrases to process before potential sleep/rate limit check
-        "sleep_between_batches": 1, # Seconds to sleep between batches (adjust based on API limits)
-        "prompt_refinement_strategy": "basic_feedback", # Placeholder for future refinement logic
+        "max_iterations": get_env_int('MAX_ITERATIONS', 10),  # Limit the number of iterations for testing/cost control
+        "mock_data_samples": get_env_int('MOCK_DATA_SAMPLES', 50),  # Number of input phrases per iteration
+        "batch_size": get_env_int('BATCH_SIZE', 5),  # How many phrases to process before potential sleep/rate limit check
+        "sleep_between_batches": get_env_int('SLEEP_BETWEEN_BATCHES', 1),  # Seconds to sleep between batches (adjust based on API limits)
+        "prompt_refinement_strategy": get_env_str('PROMPT_REFINEMENT_STRATEGY', "basic_feedback"),  # Placeholder for future refinement logic
     },
     "logging": {
-        "logger_name": "gemini_paraphrase",
-        "console_level": logging.INFO,
-        "file_level": logging.DEBUG,
+        "logger_name": get_env_str('LOGGER_NAME', "gemini_paraphrase"),
+        "console_level": getattr(logging, get_env_str('CONSOLE_LOG_LEVEL', 'INFO')),
+        "file_level": getattr(logging, get_env_str('FILE_LOG_LEVEL', 'DEBUG')),
+    },
+    "cache": {
+        "enabled": get_env_bool('API_CACHE_ENABLED', True),
+        "max_size": get_env_int('API_CACHE_MAX_SIZE', 1000),
+        "ttl_seconds": get_env_int('API_CACHE_TTL', 300),  # 5 minutes default
     }
 }
 
@@ -54,8 +87,15 @@ def refine_generator_prompt(current_prompt: str, results: Dict[str, Any], strate
     """
     Refines the generator prompt based on the results of the last iteration.
     This is a placeholder and needs actual implementation.
+
+    Args:
+        current_prompt: The current generator prompt string.
+        results: Dictionary containing results from the last iteration.
+        strategy: The refinement strategy to use.
+
+    Returns:
+        The refined generator prompt string.
     """
-    logger = logging.getLogger(CONFIG['logging']['logger_name']) # Get logger within function
     logger.info(f"Refining generator prompt using strategy: {strategy}")
     logger.debug(f"Current prompt: {current_prompt}")
     logger.debug(f"Results from last iteration: {results}")
@@ -68,13 +108,13 @@ def refine_generator_prompt(current_prompt: str, results: Dict[str, Any], strate
         if selection_rate < 0.5: # Arbitrary threshold
             logger.info("Low selection rate detected. Adding emphasis on naturalness to prompt.")
             if "sound natural" not in new_prompt.lower():
-                 # Find the instruction part and append
-                 parts = new_prompt.split('\n\nPhrase:')
-                 if len(parts) > 1:
-                     parts[0] += " Ensure the paraphrase sounds natural and fluent."
-                     new_prompt = '\n\nPhrase:'.join(parts)
-                 else: # Fallback if structure is unexpected
-                     new_prompt += "\n\nInstruction: Ensure the paraphrase sounds natural and fluent."
+                # Find the instruction part and append
+                parts = new_prompt.split('\n\nPhrase:')
+                if len(parts) > 1:
+                    parts[0] += " Ensure the paraphrase sounds natural and fluent."
+                    new_prompt = '\n\nPhrase:'.join(parts)
+                else: # Fallback if structure is unexpected
+                    new_prompt += "\n\nInstruction: Ensure the paraphrase sounds natural and fluent."
 
     # Add more sophisticated strategies here based on analysis of rejected/accepted phrases
 

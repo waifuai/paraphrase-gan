@@ -8,3 +8,8 @@ datasets
 pandas
 numpy
 pathlib
+openpyxl>=3.0.0  # For Excel file support
+requests>=2.25.0  # For HTTP endpoint checking
+
+# System monitoring
+psutil>=5.9.0

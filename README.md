@@ -5,7 +5,7 @@ This project can use either OpenRouter or Google Gemini to iteratively generate 
 Core Idea: A loop generates paraphrases for input phrases using a dynamic prompt, classifies them (human vs machine), and then refines the generator prompt for the next iteration based on the classification results.
 
 Default Provider and Model Files:
-- ~/.model-openrouter: model id for OpenRouter (default: openrouter/horizon-beta)
+- ~/.model-openrouter: model id for OpenRouter (default: deepseek/deepseek-chat-v3-0324:free)
 - ~/.model-gemini: model id for Gemini (default: gemini-2.5-pro)
 
 Provider Selection:
@@ -93,9 +93,18 @@ Gemini SDK remains available via google-genai when PROVIDER=gemini.
 - Default is OpenRouter; to force Gemini:
   export PROVIDER=gemini
 - Model resolution:
-  echo "openrouter/horizon-beta" > ~/.model-openrouter
+  echo "deepseek/deepseek-chat-v3-0324:free" > ~/.model-openrouter
   echo "gemini-2.5-pro" > ~/.model-gemini
   If files are absent, defaults are used.
+
+7.  (Optional) Configure Loop Parameters:
+   You can override default loop parameters using environment variables:
+   ```bash
+   export MAX_ITERATIONS=5                    # Default: 10
+   export MOCK_DATA_SAMPLES=100              # Default: 50
+   export BATCH_SIZE=10                      # Default: 5
+   export SLEEP_BETWEEN_BATCHES=2            # Default: 1 (seconds)
+   ```
 
 ## Usage
 
@@ -134,6 +143,64 @@ python -m src.main
 
 The script will run for the configured number of iterations, making calls to the Gemini API. Monitor your API usage and costs. Stop with Ctrl+C if needed.
 
+### Example Usage
+
+1. **Basic Run with Default Settings:**
+   ```bash
+   python -m src.main
+   ```
+
+2. **Using Gemini Instead of OpenRouter:**
+   ```bash
+   export PROVIDER=gemini
+   export GEMINI_API_KEY="your-gemini-key"
+   python -m src.main
+   ```
+
+3. **Quick Test with Fewer Iterations:**
+   ```bash
+   export MAX_ITERATIONS=2
+   export MOCK_DATA_SAMPLES=10
+   python -m src.main
+   ```
+
+4. **Using Custom Input Data:**
+   - Place your TSV file with 'input_text' column in `data/raw/`
+   - The file should be tab-separated with a header row
+   - Example: `data/raw/custom_phrases.tsv`
+
+5. **Analyzing Results:**
+   After running, check:
+   - `data/processed/selected/`: Selected human-like paraphrases
+   - `data/processed/prompts/`: Evolution of generator prompts
+   - `data/processed/loop_results_*.json`: Metrics per iteration
+   - `logs/`: Detailed execution logs
+
+### Understanding Outputs
+
+1. **Selected Paraphrases (`selected_paraphrases_*.tsv`)**
+   - Contains input phrases and their human-classified paraphrases
+   - Use this data to evaluate prompt effectiveness
+   - Higher selection rates indicate better prompt performance
+
+2. **Loop Results (`loop_results_*.json`)**
+   - `total_processed`: Total input phrases processed
+   - `total_generated`: Successfully generated paraphrases
+   - `generation_rate`: Success rate of API generation calls
+   - `selection_rate_of_generated`: Percentage of generated text classified as human
+   - `total_selected_human`: Final count of human-classified paraphrases
+
+3. **Prompt Evolution (`generator_prompt_*.txt`)**
+   - Shows how the generator prompt changes over iterations
+   - Use to understand refinement strategy effectiveness
+
+### Security Notes
+
+- **API Keys:** Never commit API keys to version control. Use environment variables or secure files.
+- **File Permissions:** Keep API key files private (`chmod 600 ~/.api-gemini`)
+- **Network Security:** API calls are made over HTTPS, but monitor for sensitive data in logs
+- **Cost Management:** Set iteration limits and monitor usage to control API costs
+
 ### Testing
 
 The `src/tests/` directory contains unit tests. **Note:** These tests need significant updates to reflect the Gemini API approach and remove obsolete Hugging Face tests. Mocking API calls will be essential for reliable testing without actual API usage.
@@ -153,6 +220,71 @@ python -m pytest src/tests/
 -   **`config.py`:** Configuration, initial prompts, refinement logic placeholder.
 -   Google GenAI SDK (google-genai): The core library for interacting with the Gemini API using a centralized client.
 -   **`pandas`:** Used for handling input data and saving results.
+
+## Troubleshooting
+
+### Common Issues
+
+1. **API Key Not Found Error**
+   ```
+   FileNotFoundError: API key file not found at ~/.api-gemini
+   ```
+   **Solutions:**
+   - Ensure your API key file exists: `ls -la ~/.api-gemini`
+   - Create the file: `echo "your-api-key-here" > ~/.api-gemini`
+   - Or set environment variable: `export GEMINI_API_KEY="your-key"`
+
+2. **Permission Denied Error**
+   ```
+   PermissionError: Permission denied for API key file
+   ```
+   **Solutions:**
+   - Fix file permissions: `chmod 600 ~/.api-gemini`
+   - Ensure the file is readable by the current user
+
+3. **API Rate Limiting**
+   - **Symptom:** Getting 429 errors or requests timing out
+   - **Solutions:**
+     - Increase `SLEEP_BETWEEN_BATCHES` environment variable
+     - Reduce `BATCH_SIZE` to process fewer items at once
+     - Check your API provider's rate limits and quota
+
+4. **Empty Generated Text**
+   - **Symptom:** Paraphrases are empty strings
+   - **Solutions:**
+     - Check the generator prompt template in `src/config.py`
+     - Ensure the model has sufficient context to generate meaningful text
+     - Try different models via the model files
+
+5. **Classification Always Returns 'machine'**
+   - **Symptom:** All paraphrases are classified as machine-generated
+   - **Solutions:**
+     - Review the classification prompt template
+     - Try adjusting the prompt to be more specific about what constitutes "human-like" text
+     - Consider using a different model for classification
+
+### Debug Mode
+
+Enable detailed logging by setting:
+```bash
+export PYTHONPATH=src
+python -m src.main 2>&1 | tee debug.log
+```
+
+### Checking API Usage
+
+Monitor your API costs by checking the logs:
+- Generation calls are logged with input/output details
+- Classification calls are tracked separately
+- Total counts are shown in iteration summaries
+
+### Resetting the Loop
+
+To start fresh:
+```bash
+rm -rf data/processed/*
+rm -f logs/*.log
+```
 
 ## Key Changes from Previous (HF GAN) Version
 

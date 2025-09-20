@@ -6,18 +6,19 @@ import pandas as pd
 from google import genai
 
 from .config import CONFIG
+from .utils import setup_logger, initialize_cache, ensure_directory, load_gemini_api_key, generate_mock_paraphrases
 from .provider_models import provider_from_env, model_for_provider
-from .utils import (
-    logger,
-    ensure_directory,
-    load_gemini_api_key,
-    generate_mock_paraphrases
-)
 from .prompt_loop import run_prompt_refinement_iteration
 
 # --- Main Script Execution ---
 def main(config: Dict[str, Any]):
     """Main function to execute the Gemini prompt refinement workflow."""
+    # Set up logger
+    logger = setup_logger(config['paths']['logs_dir'], config)
+
+    # Initialize cache
+    initialize_cache(config)
+
     logger.info("========== Starting Gemini Paraphrase Prompt Refinement ==========")
 
     # --- Initial Setup ---
@@ -56,8 +57,8 @@ def main(config: Dict[str, Any]):
             input_df = pd.read_csv(input_data_path, sep='\t')
             # Validate expected column
             if 'input_text' not in input_df.columns:
-                 logger.error(f"Input file {input_data_path} missing required 'input_text' column.")
-                 raise ValueError("Missing 'input_text' column")
+                logger.error(f"Input file {input_data_path} missing required 'input_text' column.")
+                raise ValueError("Missing 'input_text' column")
             logger.info(f"Loaded {len(input_df)} input phrases from {input_data_path}")
             # Optionally limit samples if file is large
             if len(input_df) > loop_config['mock_data_samples']:
@@ -112,12 +113,10 @@ def main(config: Dict[str, Any]):
 
 
 if __name__ == "__main__":
-    # Setup logger - moved inside main or called globally?
-    # logger = setup_logger(CONFIG['paths']['logs_dir'], CONFIG) # Ensure logger is set up
     try:
         main(CONFIG)
     except KeyboardInterrupt:
-        logger.info("Execution interrupted by user.")
+        print("Execution interrupted by user.")
     except Exception as e:
-        logger.critical(f"An unhandled error occurred in main: {e}", exc_info=True)
+        print(f"An unhandled error occurred in main: {e}", file=sys.stderr)
         sys.exit(1)
