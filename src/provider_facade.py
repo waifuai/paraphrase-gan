@@ -1,3 +1,14 @@
+"""
+Provider Facade Module
+
+This module provides a unified interface for different API providers (OpenRouter and Gemini).
+It acts as a facade that abstracts away the differences between providers, allowing the
+main application to use a consistent API regardless of which provider is selected.
+
+The facade handles provider selection based on environment variables and routes generation
+and classification requests to the appropriate provider-specific implementations.
+"""
+
 from typing import Optional
 from google import genai
 from .provider_models import provider_from_env, model_for_provider

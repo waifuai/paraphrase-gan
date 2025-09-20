@@ -1,3 +1,16 @@
+"""
+Prompt Loop Module
+
+This module contains the core logic for executing a single iteration of the prompt refinement loop.
+It handles the complete workflow for one iteration including:
+- Processing input phrases in batches
+- Generating paraphrases using the current prompt
+- Classifying paraphrases as human or machine
+- Filtering and saving selected paraphrases
+- Calculating iteration metrics and statistics
+- Refining the generator prompt for the next iteration
+"""
+
 import sys
 import time
 import json

@@ -1,3 +1,14 @@
+"""
+Test Configuration Module
+
+This module contains pytest configuration and fixtures for the test suite.
+It provides shared test data, directory fixtures, and common test utilities
+that can be used across multiple test files.
+
+The fixtures include test data for input phrases and expected outputs, as well
+as clean test environments for isolated testing of components.
+"""
+
 import pytest
 from pathlib import Path
 from src.utils import ensure_directory

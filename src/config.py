@@ -1,3 +1,14 @@
+"""
+Configuration Module
+
+This module contains all configuration settings for the API-based paraphrase prompt refinement system.
+It includes paths, filenames, Gemini API settings, loop control parameters, logging configuration,
+and the main prompt refinement logic placeholder function.
+
+The configuration uses environment variables with sensible defaults, allowing for flexible
+deployment across different environments while maintaining backward compatibility.
+"""
+
 import logging
 from pathlib import Path
 from typing import Dict, Any

@@ -1,6 +1,14 @@
 """
 Network Monitor Plugin
 
+This plugin provides comprehensive network monitoring and diagnostic capabilities for the application.
+It extends the core functionality with tools for network connectivity testing, DNS resolution,
+port scanning, bandwidth monitoring, and network interface analysis.
+
+The plugin includes methods for pinging hosts, resolving DNS records, checking port availability,
+scanning multiple ports, monitoring network interfaces, testing connectivity to multiple targets,
+and analyzing network connections and statistics.
+
 This plugin provides network monitoring and diagnostic capabilities including:
 - Network connectivity testing
 - DNS resolution

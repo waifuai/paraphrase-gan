@@ -1,3 +1,14 @@
+"""
+Unit Tests Module
+
+This module contains unit tests for the core components of the API-based paraphrase system.
+It includes tests for utility functions, API integration, mock data generation,
+post-processing logic, configuration management, and plugin system functionality.
+
+The tests use mocked API clients and fixtures to ensure reliable testing without
+requiring actual API calls, and cover both success and failure scenarios.
+"""
+
 import pytest
 import pandas as pd
 from types import SimpleNamespace

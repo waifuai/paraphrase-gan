@@ -1,3 +1,16 @@
+"""
+Utilities Module
+
+This module provides essential utility functions for the API-based paraphrase system including:
+- Logging setup and configuration
+- Directory creation utilities
+- API key loading and management
+- Gemini API integration functions for generation and classification
+- Mock data generation for testing
+- Post-processing of classification results
+- Caching system for API responses to improve performance and reduce costs
+"""
+
 import os
 import pathlib
 import logging

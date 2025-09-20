@@ -1,3 +1,15 @@
+"""
+Provider Models Module
+
+This module handles provider and model configuration for the API-based paraphrase system.
+It provides functions to determine which provider to use based on environment variables
+and resolve the appropriate model for each provider.
+
+The module supports both OpenRouter and Gemini providers, with configurable model
+selection through environment files or defaults. It centralizes model management
+to ensure consistent model selection across the application.
+"""
+
 from pathlib import Path
 import os
 

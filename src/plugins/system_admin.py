@@ -1,6 +1,14 @@
 """
 System Admin Tools Plugin
 
+This plugin provides comprehensive system administration capabilities for the application.
+It extends the core functionality with tools for process monitoring and management,
+system resource monitoring, service management, and network monitoring.
+
+The plugin includes methods for retrieving system information, monitoring CPU, memory,
+and disk usage, managing processes, checking network interfaces, and performing
+service management operations on Linux systems.
+
 This plugin provides system administration capabilities including:
 - Process monitoring and management
 - System resource monitoring

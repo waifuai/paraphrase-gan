@@ -1,3 +1,15 @@
+"""
+OpenRouter Provider Module
+
+This module provides integration with the OpenRouter API for text generation and classification.
+It handles API key management, request formatting, and response parsing specifically
+for the OpenRouter service.
+
+The module includes functions for generating paraphrases and classifying text as human
+or machine-generated using OpenRouter's chat completions API. It supports configurable
+models and includes proper error handling and timeout management.
+"""
+
 from __future__ import annotations
 import os
 from pathlib import Path

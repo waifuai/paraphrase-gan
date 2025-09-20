@@ -1,3 +1,15 @@
+"""
+Main Script
+
+This is the main entry point for the API-based paraphrase prompt refinement system.
+It orchestrates the complete workflow including setup, API initialization, data loading,
+and execution of the iterative prompt refinement loop.
+
+The script handles provider selection (OpenRouter or Gemini), API key management,
+directory creation, and the main refinement loop that iteratively generates paraphrases,
+classifies them, and refines the generation prompt based on classification results.
+"""
+
 import sys
 import time
 import logging

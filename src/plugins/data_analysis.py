@@ -1,6 +1,14 @@
 """
 Data Analysis Plugin
 
+This plugin provides comprehensive data analysis and processing capabilities for the application.
+It extends the core functionality with tools for statistical analysis, data visualization,
+file format conversion, and data cleaning/preprocessing operations.
+
+The plugin includes methods for loading and saving data in multiple formats (CSV, TSV, JSON, Excel, Parquet),
+performing statistical calculations, filtering data based on complex conditions, converting
+data types, and aggregating data by grouping columns.
+
 This plugin provides data analysis and processing capabilities including:
 - Statistical analysis
 - Data visualization
