@@ -16,30 +16,27 @@ import time
 import json
 from typing import Dict, Any, List, Tuple, Optional
 import pandas as pd
-from google import genai
 
 from .config import CONFIG, refine_generator_prompt
 from .utils import (
     logger,
     ensure_directory,
-    postprocess_discriminator_output_gemini
+    postprocess_discriminator_output
 )
 from .provider_facade import generate as provider_generate, classify as provider_classify
 
 def run_prompt_refinement_iteration(
     iteration: int,
     current_generator_prompt: str,
-    genai_client: Optional[genai.Client],
     input_data: pd.DataFrame,
     config: Dict[str, Any],
 ) -> Tuple[Dict[str, Any], str]:
     """
-    Runs a single iteration of the prompt refinement loop using Gemini API.
+    Runs a single iteration of the prompt refinement loop using OpenRouter API.
 
     Args:
         iteration: The current loop iteration number.
         current_generator_prompt: The prompt template to use for generation.
-        gemini_model: The initialized Gemini model object.
         input_data: DataFrame containing 'input_text' column.
         config: The main configuration dictionary.
 
@@ -51,7 +48,7 @@ def run_prompt_refinement_iteration(
     logger.info(f"--- Starting Prompt Refinement Iteration {iteration} ---")
     paths = config['paths']
     filenames = config['filenames']
-    gemini_config = config['gemini']
+    openrouter_config = config['openrouter']
     # model_name resolved by provider facade; keep template sources in config
     loop_config = config['loop_control']
 
@@ -79,7 +76,6 @@ def run_prompt_refinement_iteration(
             generated_text = provider_generate(
                 text=input_text,
                 prompt_template=current_generator_prompt,
-                client=genai_client
             )
 
             result_entry = {
@@ -96,8 +92,7 @@ def run_prompt_refinement_iteration(
                 # 2. Classify Paraphrase via provider facade
                 classification = provider_classify(
                     text=generated_text,
-                    classification_prompt_template=gemini_config['classification_prompt_template'],
-                    client=genai_client
+                    classification_prompt_template=openrouter_config['classification_prompt_template'],
                 )
 
                 if classification:
@@ -124,7 +119,7 @@ def run_prompt_refinement_iteration(
 
     # --- 3. Post-process and Save Selected ---
     logger.info("Post-processing results...")
-    selected_pairs_data = postprocess_discriminator_output_gemini(iteration_results_data)
+    selected_pairs_data = postprocess_discriminator_output(iteration_results_data)
     selected_df = pd.DataFrame(selected_pairs_data)
 
     # Save selected paraphrases

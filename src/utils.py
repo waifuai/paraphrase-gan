@@ -5,7 +5,7 @@ This module provides essential utility functions for the API-based paraphrase sy
 - Logging setup and configuration
 - Directory creation utilities
 - API key loading and management
-- Gemini API integration functions for generation and classification
+- OpenRouter API integration functions for generation and classification
 - Mock data generation for testing
 - Post-processing of classification results
 - Caching system for API responses to improve performance and reduce costs
@@ -17,8 +17,8 @@ import logging
 import pandas as pd
 import hashlib
 import json
+import requests
 from typing import Optional, Dict, Any
-from google import genai
 import time
 
 # Set up module-level logger
@@ -113,7 +113,7 @@ def setup_logger(logs_dir: pathlib.Path, config: Dict[str, Any]) -> logging.Logg
     """
     # Get logger configuration
     log_config = config.get('logging', {})
-    logger_name = log_config.get('logger_name', 'gemini_paraphrase')
+    logger_name = log_config.get('logger_name', 'paraphrase')
     console_level = getattr(logging, log_config.get('console_level', 'INFO'))
     file_level = getattr(logging, log_config.get('file_level', 'DEBUG'))
     log_file = log_config.get('log_file', 'run.log')
@@ -157,13 +157,15 @@ def ensure_directory(directory_path: pathlib.Path) -> None:
     """
     os.makedirs(directory_path, exist_ok=True)
 
-def load_gemini_api_key(api_key_path="~/.api-gemini") -> str:
+OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+def load_openrouter_api_key(api_key_path="~/.api-openrouter") -> str:
     """
-    Loads Gemini API key preferring env vars, with file fallback.
-    Env vars: GEMINI_API_KEY or GOOGLE_API_KEY.
+    Loads OpenRouter API key preferring env vars, with file fallback.
+    Env vars: OPENROUTER_API_KEY.
     """
     # Env-first
-    env_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    env_key = os.getenv("OPENROUTER_API_KEY")
     if env_key:
         return env_key.strip()
 
@@ -187,17 +189,16 @@ def load_gemini_api_key(api_key_path="~/.api-gemini") -> str:
         logging.debug(f"Exception type: {type(e).__name__}", exc_info=True)
         raise RuntimeError(f"Error loading API key: {e}")
 
-# Initialize Gemini API client (call this once after loading key)
-# api_key = load_gemini_api_key() # Load key first in main
-# genai.configure(api_key=api_key)
+# Initialize OpenRouter API client (call this once after loading key)
+# api_key = load_openrouter_api_key() # Load key first in main
 
-def gemini_generate_paraphrase(input_text: str, client: genai.Client, model_name: str, prompt_template: str, max_retries: int = 3, delay: int = 5, use_cache: bool = True) -> Optional[str]:
+def openrouter_generate_paraphrase(input_text: str, model_name: str, prompt_template: str, max_retries: int = 3, delay: int = 5, use_cache: bool = True) -> Optional[str]:
     """
-    Generates a paraphrase using Gemini API.
+    Generates a paraphrase using OpenRouter API.
 
     Args:
         input_text: The original text to paraphrase.
-        model: The configured Gemini model object (e.g., genai.GenerativeModel).
+        model_name: The OpenRouter model identifier.
         prompt_template: A string template for the prompt, e.g., "Paraphrase this: {text}".
         max_retries: Maximum number of retries for API calls.
         delay: Initial delay between retries in seconds.
@@ -218,22 +219,27 @@ def gemini_generate_paraphrase(input_text: str, client: genai.Client, model_name
     prompt = prompt_template.format(text=input_text)
     logging.debug(f"Generating paraphrase for '{input_text}' with prompt: '{prompt}'")
 
+    api_key = load_openrouter_api_key()
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": model_name,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.7,
+    }
+
     for attempt in range(max_retries):
         try:
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt
-            )
-            # Prefer robust parsing of candidates
+            response = requests.post(OPENROUTER_API_URL, headers=headers, json=payload, timeout=120)
+            response.raise_for_status()
+            data = response.json()
+
             text: Optional[str] = None
-            if hasattr(response, "candidates") and response.candidates:
-                cand = response.candidates[0]
-                if getattr(cand, "content", None) and getattr(cand.content, "parts", None):
-                    part = cand.content.parts[0]
-                    text = getattr(part, "text", None)
-            # Some SDKs expose convenience .text
-            if not text and hasattr(response, "text"):
-                text = getattr(response, "text", None)
+            choices = data.get("choices", [])
+            if choices:
+                text = (choices[0].get("message", {}).get("content") or "").strip()
 
             if text:
                 generated_text = text.strip()
@@ -245,9 +251,9 @@ def gemini_generate_paraphrase(input_text: str, client: genai.Client, model_name
 
                 return generated_text
             else:
-                logging.warning(f"Attempt {attempt + 1} failed: No valid content in Gemini response for input '{input_text}'. Response: {response}")
+                logging.warning(f"Attempt {attempt + 1} failed: No valid content in OpenRouter response for input '{input_text}'. Response: {data}")
         except Exception as e:
-            logging.error(f"Attempt {attempt + 1} failed during Gemini generation for input '{input_text}': {e}")
+            logging.error(f"Attempt {attempt + 1} failed during OpenRouter generation for input '{input_text}': {e}")
             logging.debug(f"Exception type: {type(e).__name__}, Exception details: {str(e)}", exc_info=True)
 
         if attempt < max_retries - 1:
@@ -260,14 +266,14 @@ def gemini_generate_paraphrase(input_text: str, client: genai.Client, model_name
 
     return None
 
-def gemini_classify_paraphrase(text: str, client: genai.Client, model_name: str, prompt_template: str, max_retries: int = 3, delay: int = 5, use_cache: bool = True) -> Optional[str]:
+def openrouter_classify_paraphrase(text: str, model_name: str, prompt_template: str, max_retries: int = 3, delay: int = 5, use_cache: bool = True) -> Optional[str]:
     """
-    Classifies text (e.g., paraphrase) using Gemini API.
+    Classifies text (e.g., paraphrase) using OpenRouter API.
     Assumes the prompt asks for a specific output like 'human' or 'machine'.
 
     Args:
         text: The text to classify.
-        model: The configured Gemini model object (e.g., genai.GenerativeModel).
+        model_name: The OpenRouter model identifier.
         prompt_template: A string template for the prompt, e.g., "Classify this: {text}".
         max_retries: Maximum number of retries for API calls.
         delay: Initial delay between retries in seconds.
@@ -288,21 +294,27 @@ def gemini_classify_paraphrase(text: str, client: genai.Client, model_name: str,
     prompt = prompt_template.format(text=text)
     logging.debug(f"Classifying text '{text}' with prompt: '{prompt}'")
 
+    api_key = load_openrouter_api_key()
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": model_name,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.0,
+    }
+
     for attempt in range(max_retries):
         try:
-            response = client.models.generate_content(
-                model=model_name,
-                contents=prompt
-            )
-            # Parse text similarly to generation
+            response = requests.post(OPENROUTER_API_URL, headers=headers, json=payload, timeout=120)
+            response.raise_for_status()
+            data = response.json()
+
             parsed_text: Optional[str] = None
-            if hasattr(response, "candidates") and response.candidates:
-                cand = response.candidates[0]
-                if getattr(cand, "content", None) and getattr(cand.content, "parts", None):
-                    part = cand.content.parts[0]
-                    parsed_text = getattr(part, "text", None)
-            if not parsed_text and hasattr(response, "text"):
-                parsed_text = getattr(response, "text", None)
+            choices = data.get("choices", [])
+            if choices:
+                parsed_text = (choices[0].get("message", {}).get("content") or "").strip()
 
             if parsed_text:
                 classification_raw = parsed_text.strip().lower()
@@ -316,14 +328,14 @@ def gemini_classify_paraphrase(text: str, client: genai.Client, model_name: str,
                     if use_cache and api_cache and cache_key:
                         api_cache.set(cache_key, 'machine')
                     return 'machine'
-                logging.warning(f"Gemini response did not contain expected classification for text '{text}'. Response: '{classification_raw}'")
+                logging.warning(f"OpenRouter response did not contain expected classification for text '{text}'. Response: '{classification_raw}'")
                 if use_cache and api_cache and cache_key:
                     api_cache.set(cache_key, 'error')
                 return 'error'
             else:
-                logging.warning(f"Attempt {attempt + 1} failed: No valid content in Gemini response for classification of '{text}'. Response: {response}")
+                logging.warning(f"Attempt {attempt + 1} failed: No valid content in OpenRouter response for classification of '{text}'. Response: {data}")
         except Exception as e:
-            logging.error(f"Attempt {attempt + 1} failed during Gemini classification for text '{text}': {e}")
+            logging.error(f"Attempt {attempt + 1} failed during OpenRouter classification for text '{text}': {e}")
             logging.debug(f"Exception type: {type(e).__name__}, Exception details: {str(e)}", exc_info=True)
 
         if attempt < max_retries - 1:
@@ -359,9 +371,9 @@ def generate_mock_paraphrases(num_samples: int = 100) -> pd.DataFrame:
     gen_df = pd.DataFrame(mock_gen_data).drop_duplicates(subset=['input_text']).reset_index(drop=True)
     return gen_df
 
-def postprocess_discriminator_output_gemini(generated_phrases_data: List[Dict[str, str]]) -> List[Dict[str, str]]:
+def postprocess_discriminator_output(generated_phrases_data: List[Dict[str, str]]) -> List[Dict[str, str]]:
     """
-    Filters generated phrases based on Gemini classifications embedded in the data.
+    Filters generated phrases based on classifications embedded in the data.
 
     Args:
         generated_phrases_data: List of dictionaries containing 'input_text', 'generated_text', and 'classification'.

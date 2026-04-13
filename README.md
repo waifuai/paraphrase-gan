@@ -5,7 +5,7 @@ This project can use either OpenRouter or Google Gemini to iteratively generate 
 Core Idea: A loop generates paraphrases for input phrases using a dynamic prompt, classifies them (human vs machine), and then refines the generator prompt for the next iteration based on the classification results.
 
 Default Provider and Model Files:
-- ~/.model-openrouter: model id for OpenRouter (default: deepseek/deepseek-chat-v3-0324:free)
+- ~/.model-openrouter: model id for OpenRouter (default: openrouter/free)
 - ~/.model-gemini: model id for Gemini (default: gemini-2.5-pro)
 
 Provider Selection:
@@ -93,7 +93,7 @@ Gemini SDK remains available via google-genai when PROVIDER=gemini.
 - Default is OpenRouter; to force Gemini:
   export PROVIDER=gemini
 - Model resolution:
-  echo "deepseek/deepseek-chat-v3-0324:free" > ~/.model-openrouter
+  echo "openrouter/free" > ~/.model-openrouter
   echo "gemini-2.5-pro" > ~/.model-gemini
   If files are absent, defaults are used.
 

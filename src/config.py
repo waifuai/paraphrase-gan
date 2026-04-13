@@ -2,7 +2,7 @@
 Configuration Module
 
 This module contains all configuration settings for the API-based paraphrase prompt refinement system.
-It includes paths, filenames, Gemini API settings, loop control parameters, logging configuration,
+It includes paths, filenames, OpenRouter API settings, loop control parameters, logging configuration,
 and the main prompt refinement logic placeholder function.
 
 The configuration uses environment variables with sensible defaults, allowing for flexible
@@ -50,17 +50,17 @@ CONFIG: Dict[str, Any] = {
         "processed_data_dir": PROJECT_ROOT / "data" / "processed", # Where results are saved
         "selected_paraphrases_dir": PROJECT_ROOT / "data" / "processed" / "selected", # Store selected paraphrases
         "prompt_history_dir": PROJECT_ROOT / "data" / "processed" / "prompts", # Store prompt evolution
-        "api_key_file": Path.home() / ".api-gemini", # Standard location for API key
+        "api_key_file": Path.home() / ".api-openrouter", # Standard location for API key
     },
     "filenames": {
-        "log_file": "run_gemini.log", # New log file name
+        "log_file": "run.log", # Log file name
         "mock_input_data": "mock_input_phrases.tsv", # Simple input file
         "selected_paraphrases": "selected_paraphrases_{iteration}.tsv", # Iteration-based output
         "prompt_history": "generator_prompt_{iteration}.txt", # Track prompts
         "loop_results": "loop_results_{iteration}.json", # Store metrics/results per iteration
     },
-    "gemini": {
-        "model_name": get_env_str('GEMINI_MODEL', "gemini-2.5-pro"),  # Or the specific model you want to use
+    "openrouter": {
+        "model_name": get_env_str('OPENROUTER_MODEL', "openrouter/free"),  # Default free model
         "generation_prompt_template": get_env_str(
             'GENERATION_PROMPT_TEMPLATE',
             "Generate a concise paraphrase for the following phrase, focusing on maintaining the original meaning but using different wording:\n\nPhrase: {text}\nParaphrase:"
@@ -80,7 +80,7 @@ CONFIG: Dict[str, Any] = {
         "prompt_refinement_strategy": get_env_str('PROMPT_REFINEMENT_STRATEGY', "basic_feedback"),  # Placeholder for future refinement logic
     },
     "logging": {
-        "logger_name": get_env_str('LOGGER_NAME', "gemini_paraphrase"),
+        "logger_name": get_env_str('LOGGER_NAME', "paraphrase"),
         "console_level": getattr(logging, get_env_str('CONSOLE_LOG_LEVEL', 'INFO')),
         "file_level": getattr(logging, get_env_str('FILE_LOG_LEVEL', 'DEBUG')),
     },

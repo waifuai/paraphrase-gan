@@ -5,7 +5,7 @@ This is the main entry point for the API-based paraphrase prompt refinement syst
 It orchestrates the complete workflow including setup, API initialization, data loading,
 and execution of the iterative prompt refinement loop.
 
-The script handles provider selection (OpenRouter or Gemini), API key management,
+The script handles provider selection (OpenRouter), API key management,
 directory creation, and the main refinement loop that iteratively generates paraphrases,
 classifies them, and refines the generation prompt based on classification results.
 """
@@ -15,28 +15,25 @@ import time
 import logging
 from typing import Dict, Any
 import pandas as pd
-from google import genai
 
 from .config import CONFIG
-from .utils import setup_logger, initialize_cache, ensure_directory, load_gemini_api_key, generate_mock_paraphrases
-from .provider_models import provider_from_env, model_for_provider
+from .utils import setup_logger, initialize_cache, ensure_directory, generate_mock_paraphrases
 from .prompt_loop import run_prompt_refinement_iteration
 
 # --- Main Script Execution ---
 def main(config: Dict[str, Any]):
-    """Main function to execute the Gemini prompt refinement workflow."""
+    """Main function to execute the paraphrase prompt refinement workflow."""
     # Set up logger
     logger = setup_logger(config['paths']['logs_dir'], config)
 
     # Initialize cache
     initialize_cache(config)
 
-    logger.info("========== Starting Gemini Paraphrase Prompt Refinement ==========")
+    logger.info("========== Starting Paraphrase Prompt Refinement ==========")
 
     # --- Initial Setup ---
     paths = config['paths']
     filenames = config['filenames']
-    gemini_config = config['gemini']
     loop_config = config['loop_control']
 
     # Create essential directory structure from config
@@ -45,21 +42,6 @@ def main(config: Dict[str, Any]):
     ensure_directory(paths['processed_data_dir'])
     ensure_directory(paths['selected_paraphrases_dir'])
     ensure_directory(paths['prompt_history_dir'])
-
-    # --- Determine provider and optionally configure Gemini client ---
-    provider = provider_from_env()
-    client = None
-    if provider == "gemini":
-        try:
-            api_key = load_gemini_api_key(str(paths['api_key_file']))
-            client = genai.Client(api_key=api_key)
-            resolved_model = model_for_provider("gemini")
-            logger.info(f"Configured Google GenAI client for model: {resolved_model}")
-        except (FileNotFoundError, ValueError, RuntimeError, Exception) as e:
-            logger.critical(f"Failed to initialize Gemini API: {e}. Please ensure your API key is correctly placed and valid.")
-            sys.exit(1)
-    else:
-        logger.info("Using OpenRouter provider; no Gemini client initialization required.")
 
     # --- Load or Generate Input Data ---
     input_data_path = paths['raw_data_dir'] / filenames['mock_input_data']
@@ -94,7 +76,7 @@ def main(config: Dict[str, Any]):
             sys.exit(1)
 
     # --- Prompt Refinement Loop ---
-    current_prompt = gemini_config['generation_prompt_template']
+    current_prompt = config['openrouter']['generation_prompt_template']
     max_iterations = loop_config['max_iterations']
 
     for iteration in range(1, max_iterations + 1):
@@ -103,7 +85,6 @@ def main(config: Dict[str, Any]):
             iteration_results, next_prompt = run_prompt_refinement_iteration(
                 iteration=iteration,
                 current_generator_prompt=current_prompt,
-                genai_client=client,
                 input_data=input_df,
                 config=config
             )

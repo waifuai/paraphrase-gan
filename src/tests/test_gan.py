@@ -11,63 +11,49 @@ requiring actual API calls, and cover both success and failure scenarios.
 
 import pytest
 import pandas as pd
-from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from src.utils import (
-    gemini_generate_paraphrase,
-    gemini_classify_paraphrase,
+    openrouter_generate_paraphrase,
+    openrouter_classify_paraphrase,
     setup_logger,
-    load_gemini_api_key,
+    load_openrouter_api_key,
     generate_mock_paraphrases,
-    postprocess_discriminator_output_gemini,
+    postprocess_discriminator_output,
     ensure_directory
 )
 from src.config import CONFIG
 from src.plugins import get_plugin_manager
 
 
-class DummyClient:
-    """Mock client for testing Gemini API calls."""
-    class ModelsNS:
-        def __init__(self, response_text: str):
-            self._text = response_text
-        def generate_content(self, model: str, contents: str):
-            # mimic google-genai response shape with candidates[0].content.parts[0].text and .text
-            part = SimpleNamespace(text=self._text)
-            content = SimpleNamespace(parts=[part])
-            candidate = SimpleNamespace(content=content)
-            return SimpleNamespace(candidates=[candidate], text=self._text)
-    def __init__(self, response_text: str):
-        self.models = DummyClient.ModelsNS(response_text)
-
-
 def test_utils_generation_and_classification_mocked():
-    """Test basic generation and classification with mocked client."""
-    client = DummyClient("human")  # will return "human" for both calls
-    model_name = "gemini-2.5-pro"
+    """Test basic generation and classification with mocked requests."""
+    with patch('src.utils.requests.post') as mock_post:
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"choices": [{"message": {"content": "human"}}]}
+        mock_post.return_value = mock_response
 
-    # Test generation
-    gen = gemini_generate_paraphrase(
-        input_text="hello world",
-        client=client,
-        model_name=model_name,
-        prompt_template="Paraphrase: {text}",
-        max_retries=1,
-        delay=0,
-    )
-    assert isinstance(gen, str) and len(gen) > 0
+        with patch('src.utils.load_openrouter_api_key', return_value='fake-key'):
+            # Test generation
+            gen = openrouter_generate_paraphrase(
+                input_text="hello world",
+                model_name="openrouter/free",
+                prompt_template="Paraphrase: {text}",
+                max_retries=1,
+                delay=0,
+            )
+            assert isinstance(gen, str) and len(gen) > 0
 
-    # Test classification
-    cls = gemini_classify_paraphrase(
-        text="anything",
-        client=client,
-        model_name=model_name,
-        prompt_template="Classify: {text}",
-        max_retries=1,
-        delay=0,
-    )
-    assert cls == "human"
+            # Test classification
+            cls = openrouter_classify_paraphrase(
+                text="anything",
+                model_name="openrouter/free",
+                prompt_template="Classify: {text}",
+                max_retries=1,
+                delay=0,
+            )
+            assert cls == "human"
 
 
 def test_setup_logger():
@@ -115,7 +101,7 @@ def test_postprocess_discriminator_output_gemini():
         }
     ]
 
-    result = postprocess_discriminator_output_gemini(test_data)
+    result = postprocess_discriminator_output(test_data)
 
     assert len(result) == 1  # Only human classification should be selected
     assert result[0]['input_text'] == 'test phrase 1'
@@ -159,21 +145,20 @@ def test_plugin_system():
 
 def test_api_error_handling():
     """Test API error handling and retries."""
-    # Test with a client that always fails
-    failing_client = DummyClient("error")
-    failing_client.models.generate_content = Mock(side_effect=Exception("API Error"))
+    with patch('src.utils.requests.post') as mock_post:
+        mock_post.side_effect = Exception("API Error")
 
-    result = gemini_generate_paraphrase(
-        input_text="test",
-        client=failing_client,
-        model_name="gemini-2.5-pro",
-        prompt_template="Paraphrase: {text}",
-        max_retries=2,
-        delay=0,
-    )
+        with patch('src.utils.load_openrouter_api_key', return_value='fake-key'):
+            result = openrouter_generate_paraphrase(
+                input_text="test",
+                model_name="openrouter/free",
+                prompt_template="Paraphrase: {text}",
+                max_retries=2,
+                delay=0,
+            )
 
-    # Should return None after retries
-    assert result is None
+            # Should return None after retries
+            assert result is None
 
 
 def test_classification_edge_cases():
@@ -188,13 +173,18 @@ def test_classification_edge_cases():
 
     for text, expected in test_cases:
         if expected != "error":
-            client = DummyClient(expected)
-            result = gemini_classify_paraphrase(
-                text=text,
-                client=client,
-                model_name="gemini-2.5-pro",
-                prompt_template="Classify: {text}",
-                max_retries=1,
-                delay=0,
-            )
-            assert result == expected
+            with patch('src.utils.requests.post') as mock_post:
+                mock_response = Mock()
+                mock_response.status_code = 200
+                mock_response.json.return_value = {"choices": [{"message": {"content": expected}}]}
+                mock_post.return_value = mock_response
+
+                with patch('src.utils.load_openrouter_api_key', return_value='fake-key'):
+                    result = openrouter_classify_paraphrase(
+                        text=text,
+                        model_name="openrouter/free",
+                        prompt_template="Classify: {text}",
+                        max_retries=1,
+                        delay=0,
+                    )
+                    assert result == expected
