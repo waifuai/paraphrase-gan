@@ -222,6 +222,10 @@ def openrouter_generate_paraphrase(input_text: str, model_name: str, prompt_temp
     api_key = load_openrouter_api_key()
     headers = {
         "Authorization": f"Bearer {api_key}",
+        "HTTP-Referer": "https://waifuai.com",
+        "X-OpenRouter-Title": "Waifu AI",
+        "X-Title": "Waifu AI",
+        "X-OpenRouter-Categories": "character-chat",
         "Content-Type": "application/json",
     }
     payload = {
@@ -297,6 +301,10 @@ def openrouter_classify_paraphrase(text: str, model_name: str, prompt_template: 
     api_key = load_openrouter_api_key()
     headers = {
         "Authorization": f"Bearer {api_key}",
+            "HTTP-Referer": "https://waifuai.com",
+            "X-OpenRouter-Title": "Waifu AI",
+            "X-Title": "Waifu AI",
+            "X-OpenRouter-Categories": "character-chat",
         "Content-Type": "application/json",
     }
     payload = {
