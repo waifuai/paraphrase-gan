@@ -1,12 +1,7 @@
-# Runtime dependencies (flexible pins suitable for OSS consumers)
-
-# Data utilities
-datasets
-pandas
-numpy
-pathlib
-openpyxl>=3.0.0  # For Excel file support
-requests>=2.25.0  # For OpenRouter API and HTTP endpoint checking
-
-# System monitoring
-psutil>=5.9.0
+datasets==3.6.0
+pandas==3.0.2
+numpy==2.4.4
+pathlib==1.0.1
+openpyxl==3.1.5
+requests==2.33.1
+psutil==7.0.0
