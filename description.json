@@ -1,6 +1,0 @@
-{
-  "title": "Iterative Paraphrase Prompt Refinement with AI APIs",
-  "link": "./paraphrase-gan",
-  "description": "Unlock the power of adaptive AI text generation with this innovative project that iteratively refines prompts to create more human-like paraphrases using OpenRouter API 🤖. At its core, the system loops through generations: input phrases are paraphrased via dynamic prompts, classified as 'human' or 'machine' based on quality feedback, and the generator prompt evolves to boost authenticity over multiple iterations 🔄. Perfect for researchers and developers tackling AI detectability, it handles setup effortlessly—clone, install dependencies with uv or pip, configure API keys securely, and run the workflow to produce refined outputs 📊. Track progress via detailed logs, metrics on generation and selection rates, and evolving prompt history. From mock data to custom inputs, it emphasizes cost management, error handling, and future enhancements like advanced refinement strategies, making AI-generated text indistinguishable from human writing. (132 words)",
-  "description_small": "Refine prompts for undetectable AI paraphrases! 🔄 Iterative loop with OpenRouter: generate phrases, classify human vs machine, and evolve prompts via feedback. 🚀 Setup with API keys, track metrics in data/logs. 💡"
-}
